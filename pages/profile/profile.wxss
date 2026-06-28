@@ -1,0 +1,49 @@
+.profile-card {
+  padding: 30rpx;
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+}
+
+.avatar {
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: 12rpx;
+  background: #39b879;
+  color: #ffffff;
+  font-size: 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.name {
+  margin-bottom: 8rpx;
+  font-size: 34rpx;
+  color: #303438;
+}
+
+.menu {
+  margin-top: 24rpx;
+  overflow: hidden;
+}
+
+.menu button {
+  height: 104rpx;
+  padding: 0 28rpx;
+  border-bottom: 1rpx solid #eef1f3;
+  color: #303438;
+  font-size: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.menu button:last-child {
+  border-bottom: 0;
+}
+
+.arrow {
+  color: #b2b7bd;
+  font-size: 40rpx;
+}

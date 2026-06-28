@@ -1,0 +1,37 @@
+<view class="page detail-page">
+  <view wx:if="{{table.id}}">
+    <view class="summary card">
+      <view>
+        <view class="summary-title">{{table.name}}</view>
+        <view class="muted">分享码：{{table.shareCode}}</view>
+      </view>
+      <view class="status {{table.status}}">{{table.statusText}}</view>
+    </view>
+
+    <view class="rank card">
+      <view class="rank-title">当前战绩</view>
+      <view class="rank-row" wx:for="{{players}}" wx:key="id">
+        <text>{{item.name}}</text>
+        <text class="{{item.score >= 0 ? 'win' : 'lose'}}">{{item.score}}</text>
+      </view>
+    </view>
+
+    <view class="record-list">
+      <view class="record card" wx:for="{{records}}" wx:key="id">
+        <view class="record-main">
+          <text>{{item.fromPlayerName}}</text>
+          <text class="muted"> 给 </text>
+          <text>{{item.toPlayerName}}</text>
+          <text class="amount"> {{item.amount}} </text>
+          <text>分</text>
+        </view>
+        <view class="muted time">{{item.timeText}}</view>
+      </view>
+      <view wx:if="{{!records.length}}" class="empty card">还没有计分明细</view>
+    </view>
+  </view>
+  <view wx:else class="empty card">
+    <view>暂无牌局</view>
+    <view class="muted">先创建一桌再查看明细。</view>
+  </view>
+</view>

@@ -1,0 +1,24 @@
+<view class="page join-page">
+  <view class="card intro">
+    <view class="title">{{table.name}}</view>
+    <view class="muted">选择你的玩家身份。绑定后，你可以在牌局里给其他玩家计分。</view>
+  </view>
+
+  <view class="player-list">
+    <view class="player-card card {{item.openid ? 'disabled' : ''}}" wx:for="{{players}}" wx:key="id" bindtap="selectPlayer" data-id="{{item.id}}">
+      <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
+      <view class="player-info">
+        <view class="name">{{item.name}}</view>
+        <view class="muted">{{item.openid ? '已绑定' : '可选择'}}</view>
+      </view>
+      <view class="radio {{selectedId === item.id ? 'checked' : ''}}"></view>
+    </view>
+  </view>
+
+  <view class="card name-card">
+    <text>我的昵称</text>
+    <input value="{{name}}" bindinput="onNameInput" placeholder="输入你的牌桌昵称" />
+  </view>
+
+  <button class="primary-btn bind-btn" bindtap="bindPlayer">确认绑定</button>
+</view>

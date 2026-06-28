@@ -1,0 +1,16 @@
+<view class="page create-page">
+  <view class="form card">
+    <view class="field">
+      <text class="label">牌局名称</text>
+      <input value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
+    </view>
+    <view class="field">
+      <text class="label">玩家</text>
+      <view class="player-inputs">
+        <input wx:for="{{playerNames}}" wx:key="index" data-index="{{index}}" value="{{item}}" bindinput="onPlayerInput" placeholder="玩家昵称" />
+      </view>
+    </view>
+  </view>
+
+  <button class="primary-btn submit" bindtap="createTable">创建并进入牌局</button>
+</view>

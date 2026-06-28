@@ -1,0 +1,40 @@
+<view class="page home-page">
+  <view class="top-actions">
+    <view></view>
+    <navigator url="/pages/profile/profile">我的</navigator>
+  </view>
+  <view class="section-title">开桌</view>
+  <view class="mode-grid">
+    <navigator class="mode-card card highlight" url="/pages/create/create">
+      <view class="badge">多人</view>
+      <view class="mode-title">多人计分桌</view>
+      <view class="mode-desc">牌友扫码进入，自己操作计分</view>
+    </navigator>
+    <navigator class="mode-card card" url="/pages/create/create?single=1">
+      <view class="mode-title">单人计分桌</view>
+      <view class="mode-desc">只由你一个人操作计分</view>
+    </navigator>
+  </view>
+
+  <view class="section-title recent-title">最近牌局</view>
+  <block wx:if="{{tables.length}}">
+    <view class="table-card card" wx:for="{{tables}}" wx:key="id" bindtap="openTable" data-id="{{item.id}}">
+      <view class="table-top">
+        <text class="table-name">{{item.name}}</text>
+        <text class="status {{item.status}}">{{item.statusText}}</text>
+      </view>
+      <view class="players">
+        <view class="player-chip" wx:for="{{item.players}}" wx:key="id">
+          <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
+          <text>{{item.name}}</text>
+          <text class="{{item.score >= 0 ? 'score win' : 'score lose'}}">{{item.score}}</text>
+        </view>
+      </view>
+      <view class="table-meta">{{item.createdText}} 开始 | {{item.durationText}}</view>
+    </view>
+  </block>
+  <view wx:else class="empty card">
+    <view>还没有牌局</view>
+    <view class="muted">先创建一桌，牌友就能从分享进入。</view>
+  </view>
+</view>

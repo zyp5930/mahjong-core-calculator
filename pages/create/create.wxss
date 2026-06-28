@@ -1,0 +1,32 @@
+.form {
+  padding: 30rpx;
+}
+
+.field + .field {
+  margin-top: 32rpx;
+}
+
+.label {
+  display: block;
+  margin-bottom: 16rpx;
+  color: #626970;
+  font-size: 28rpx;
+}
+
+input {
+  height: 84rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid #dfe3e6;
+  border-radius: 8rpx;
+  background: #ffffff;
+  font-size: 30rpx;
+}
+
+.player-inputs {
+  display: grid;
+  gap: 18rpx;
+}
+
+.submit {
+  margin-top: 36rpx;
+}

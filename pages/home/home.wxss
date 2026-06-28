@@ -1,0 +1,165 @@
+.home-page {
+  padding-top: 36rpx;
+}
+
+.top-actions {
+  margin-bottom: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.top-actions navigator {
+  width: 120rpx;
+  height: 60rpx;
+  border: 1rpx solid #d4d8dc;
+  border-radius: 8rpx;
+  color: #60666d;
+  font-size: 26rpx;
+  line-height: 60rpx;
+  text-align: center;
+}
+
+.section-title {
+  padding-left: 14rpx;
+  border-left: 8rpx solid #39b879;
+  color: #626970;
+  font-size: 30rpx;
+  line-height: 32rpx;
+  margin-bottom: 22rpx;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24rpx;
+}
+
+.mode-card {
+  height: 160rpx;
+  padding: 28rpx;
+  position: relative;
+}
+
+.mode-card.highlight {
+  box-shadow: 0 8rpx 24rpx rgba(45, 69, 86, 0.08);
+}
+
+.badge {
+  position: absolute;
+  left: 0;
+  top: -18rpx;
+  min-width: 78rpx;
+  height: 42rpx;
+  padding: 0 16rpx;
+  border-radius: 0 22rpx 22rpx 0;
+  background: #d4a11d;
+  color: #ffffff;
+  font-size: 24rpx;
+  line-height: 42rpx;
+}
+
+.mode-title {
+  margin-top: 8rpx;
+  font-size: 36rpx;
+  color: #303438;
+}
+
+.mode-desc {
+  margin-top: 20rpx;
+  color: #7b828a;
+  font-size: 26rpx;
+}
+
+.recent-title {
+  margin-top: 48rpx;
+}
+
+.table-card {
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.table-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.table-name {
+  font-size: 32rpx;
+  color: #626970;
+}
+
+.status {
+  font-size: 30rpx;
+}
+
+.status.active {
+  color: #39b879;
+}
+
+.status.ended {
+  color: #8d949c;
+}
+
+.players {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20rpx;
+  margin-top: 26rpx;
+}
+
+.player-chip {
+  min-width: 0;
+  text-align: center;
+}
+
+.avatar {
+  width: 76rpx;
+  height: 76rpx;
+  margin: 0 auto 8rpx;
+  border-radius: 12rpx;
+  color: #ffffff;
+  font-size: 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-chip text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 24rpx;
+}
+
+.score {
+  margin-top: 6rpx;
+  font-size: 34rpx;
+}
+
+.score.win {
+  color: #f15d4f;
+}
+
+.score.lose {
+  color: #2f3337;
+}
+
+.table-meta {
+  margin-top: 24rpx;
+  color: #9aa0a6;
+  font-size: 26rpx;
+}
+
+.empty {
+  padding: 48rpx 28rpx;
+  font-size: 30rpx;
+}
+
+.empty .muted {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+}

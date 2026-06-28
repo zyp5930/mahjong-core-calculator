@@ -1,0 +1,66 @@
+<view class="room-page">
+  <view class="toolbar">
+    <button class="tool" open-type="share">
+      <text class="tool-icon">邀</text>
+      <text>邀请</text>
+    </button>
+    <button class="tool" bindtap="openDetail">
+      <text class="tool-icon">明</text>
+      <text>明细</text>
+    </button>
+    <button class="tool" bindtap="goBack">
+      <text class="tool-icon">退</text>
+      <text>退出</text>
+    </button>
+    <button class="tool" bindtap="toggleMuted">
+      <text class="tool-icon">{{table.muted ? '关' : '开'}}</text>
+      <text>{{table.muted ? '已关' : '提示'}}</text>
+    </button>
+    <button class="tool" bindtap="showMore">
+      <text class="tool-icon">•••</text>
+      <text>更多</text>
+    </button>
+  </view>
+
+  <view class="join-tip" wx:if="{{table && !myPlayer}}">
+    <text>请选择你的玩家身份后开始计分</text>
+    <button bindtap="openJoin">绑定身份</button>
+  </view>
+
+  <view class="players">
+    <view class="player-card card" wx:for="{{players}}" wx:key="id">
+      <view class="avatar-wrap">
+        <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
+        <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
+      </view>
+      <view class="player-main">
+        <view class="player-name">{{item.name}}</view>
+        <view class="score-line {{item.score >= 0 ? 'win' : 'lose'}}">
+          <text>{{item.score >= 0 ? '赢：' : '输：'}}</text>
+          <text class="score-num">{{item.absScore}}</text>
+        </view>
+      </view>
+      <view wx:if="{{canGive && item.id !== myPlayer.id}}" class="action-group">
+        <button class="give-btn" bindtap="openKeypad" data-id="{{item.id}}">给分</button>
+        <button class="undo-btn" bindtap="undoLastGive" data-id="{{item.id}}">撤销</button>
+      </view>
+      <view wx:else class="give-placeholder"></view>
+    </view>
+  </view>
+
+  <view class="ended-mask" wx:if="{{table.status === 'ended'}}">牌局已结束，仅可查看</view>
+
+  <view class="sheet-mask" wx:if="{{keypadVisible}}" bindtap="closeKeypad"></view>
+  <view class="score-sheet" wx:if="{{keypadVisible}}">
+    <view class="sheet-player">
+      <view class="sheet-avatar" style="background: {{targetPlayer.avatarColor}}">{{targetPlayer.initial}}</view>
+      <text>{{targetPlayer.name}}</text>
+    </view>
+    <view class="score-input-row">
+      <view class="score-input">{{inputValue || '请输入分数'}}</view>
+    </view>
+    <view class="keypad">
+      <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" class="{{item === '确认' ? 'confirm' : ''}}">{{item}}</button>
+    </view>
+  </view>
+</view>

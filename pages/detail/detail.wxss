@@ -1,0 +1,81 @@
+.summary {
+  padding: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-title {
+  margin-bottom: 10rpx;
+  font-size: 34rpx;
+  color: #303438;
+}
+
+.status {
+  font-size: 30rpx;
+}
+
+.status.active {
+  color: #39b879;
+}
+
+.status.ended {
+  color: #8d949c;
+}
+
+.rank {
+  margin-top: 24rpx;
+  padding: 26rpx 28rpx;
+}
+
+.rank-title {
+  margin-bottom: 18rpx;
+  color: #626970;
+  font-size: 28rpx;
+}
+
+.rank-row {
+  min-height: 54rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 30rpx;
+}
+
+.win {
+  color: #e95d4d;
+}
+
+.lose {
+  color: #303438;
+}
+
+.record-list {
+  margin-top: 24rpx;
+}
+
+.record {
+  margin-bottom: 18rpx;
+  padding: 24rpx 28rpx;
+}
+
+.record-main {
+  font-size: 30rpx;
+  color: #303438;
+}
+
+.amount {
+  color: #e95d4d;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.time {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+}
+
+.empty {
+  padding: 46rpx 28rpx;
+  font-size: 30rpx;
+}

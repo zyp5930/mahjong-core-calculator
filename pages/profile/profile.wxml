@@ -1,0 +1,20 @@
+<view class="page profile-page">
+  <view class="profile-card card">
+    <view class="avatar">我</view>
+    <view>
+      <view class="name">个人计分工具</view>
+      <view class="muted">本版本使用本地存储；接入云开发后可多人同步。</view>
+    </view>
+  </view>
+
+  <view class="menu card">
+    <button bindtap="copyOpenid">
+      <text>复制本机身份 ID</text>
+      <text class="arrow">›</text>
+    </button>
+    <button bindtap="clearData">
+      <text>清空本地数据</text>
+      <text class="arrow">›</text>
+    </button>
+  </view>
+</view>

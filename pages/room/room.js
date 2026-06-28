@@ -1,0 +1,186 @@
+const store = require('../../services/store');
+
+Page({
+  data: {
+    tableId: '',
+    table: null,
+    players: [],
+    myPlayer: null,
+    canGive: false,
+    keypadVisible: false,
+    targetPlayer: null,
+    inputValue: '',
+    keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '取消', '0', '确认']
+  },
+
+  onLoad(options) {
+    const tableId = options.id || '';
+    const shareCode = options.shareCode || '';
+    if (tableId) {
+      this.setData({ tableId });
+      this.loadTable();
+      return;
+    }
+    if (shareCode) {
+      this.resolveShareCode(shareCode);
+    }
+  },
+
+  onShow() {
+    if (this.data.tableId) this.loadTable();
+  },
+
+  onPullDownRefresh() {
+    this.loadTable().finally(() => wx.stopPullDownRefresh());
+  },
+
+  onShareAppMessage() {
+    const table = this.data.table || {};
+    return {
+      title: `加入${table.name || '麻将计分桌'}`,
+      path: `/pages/room/room?shareCode=${table.shareCode}`
+    };
+  },
+
+  async resolveShareCode(shareCode) {
+    const table = await store.getTableByShareCode(shareCode);
+    if (!table) {
+      wx.showToast({ title: '分享码无效', icon: 'none' });
+      return;
+    }
+    this.setData({ tableId: table.id });
+    this.loadTable();
+  },
+
+  async loadTable() {
+    const table = await store.getTable(this.data.tableId);
+    if (!table) {
+      wx.showToast({ title: '牌局不存在', icon: 'none' });
+      return;
+    }
+    const myPlayer = store.findMyPlayer(table);
+    const players = table.players.map((player) => ({
+      ...player,
+      initial: player.name.slice(0, 1),
+      absScore: Math.abs(player.score)
+    }));
+    this.setData({
+      table,
+      players,
+      myPlayer,
+      canGive: !!myPlayer && table.status === 'active'
+    });
+  },
+
+  openJoin() {
+    wx.navigateTo({
+      url: `/pages/join/join?id=${this.data.tableId}`
+    });
+  },
+
+  openDetail() {
+    wx.navigateTo({
+      url: `/pages/detail/detail?id=${this.data.tableId}`
+    });
+  },
+
+  goBack() {
+    wx.redirectTo({
+      url: '/pages/home/home'
+    });
+  },
+
+  async toggleMuted() {
+    await store.toggleMuted(this.data.tableId);
+    this.loadTable();
+  },
+
+  showMore() {
+    wx.showActionSheet({
+      itemList: ['结束牌局', '复制分享码'],
+      success: async (res) => {
+        if (res.tapIndex === 0) {
+          await store.endTable(this.data.tableId);
+          this.loadTable();
+        }
+        if (res.tapIndex === 1) {
+          wx.setClipboardData({ data: this.data.table.shareCode });
+        }
+      }
+    });
+  },
+
+  openKeypad(event) {
+    const id = event.currentTarget.dataset.id;
+    const targetPlayer = this.data.players.find((player) => player.id === id);
+    this.setData({
+      targetPlayer,
+      keypadVisible: true,
+      inputValue: ''
+    });
+  },
+
+  async undoLastGive(event) {
+    try {
+      await store.undoLastGive(
+        this.data.tableId,
+        this.data.myPlayer.id,
+        event.currentTarget.dataset.id
+      );
+      this.loadTable();
+    } catch (error) {
+      wx.showToast({ title: error.message || '撤销失败', icon: 'none' });
+    }
+  },
+
+  closeKeypad() {
+    this.setData({
+      keypadVisible: false,
+      targetPlayer: null,
+      inputValue: ''
+    });
+  },
+
+  clearInput() {
+    this.setData({
+      inputValue: this.data.inputValue.slice(0, -1)
+    });
+  },
+
+  tapKey(event) {
+    const key = event.currentTarget.dataset.key;
+    if (key === '取消') {
+      this.closeKeypad();
+      return;
+    }
+    if (key === '确认') {
+      this.confirmGive();
+      return;
+    }
+    if (this.data.inputValue.length >= 6) return;
+    if (key === '0' && !this.data.inputValue) return;
+    this.setData({
+      inputValue: `${this.data.inputValue}${key}`
+    });
+  },
+
+  async confirmGive() {
+    const amount = Number(this.data.inputValue);
+    if (!amount) {
+      wx.showToast({ title: '请输入分数', icon: 'none' });
+      return;
+    }
+    try {
+      await store.giveScore(
+        this.data.tableId,
+        this.data.myPlayer.id,
+        this.data.targetPlayer.id,
+        amount
+      );
+      this.closeKeypad();
+      this.loadTable();
+    } catch (error) {
+      wx.showToast({ title: error.message || '计分失败', icon: 'none' });
+    }
+  }
+});

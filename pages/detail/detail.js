@@ -1,0 +1,44 @@
+const store = require('../../services/store');
+const { formatTime } = require('../../utils/format');
+
+Page({
+  data: {
+    tableId: '',
+    table: {},
+    players: [],
+    records: []
+  },
+
+  onLoad(options) {
+    this.setData({ tableId: options.id || '' });
+  },
+
+  onShow() {
+    this.loadDetail();
+  },
+
+  async loadDetail() {
+    let table = null;
+    if (this.data.tableId) {
+      table = await store.getTable(this.data.tableId);
+    } else {
+      const tables = await store.listTables();
+      table = tables[0] || null;
+    }
+    if (!table) {
+      this.setData({ table: {}, players: [], records: [] });
+      return;
+    }
+    this.setData({
+      table: {
+        ...table,
+        statusText: table.status === 'active' ? '进行中' : '已结束'
+      },
+      players: store.sortPlayers(table.players),
+      records: table.records.map((record) => ({
+        ...record,
+        timeText: formatTime(record.createdAt)
+      }))
+    });
+  }
+});

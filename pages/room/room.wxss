@@ -1,0 +1,268 @@
+.room-page {
+  min-height: 100vh;
+  padding-bottom: 36rpx;
+  background: #eef1f3;
+}
+
+.toolbar {
+  height: 150rpx;
+  padding: 18rpx 24rpx 12rpx;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1rpx solid #e7eaed;
+}
+
+.tool {
+  color: #676d74;
+  font-size: 26rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+}
+
+.tool-icon {
+  width: 56rpx;
+  height: 56rpx;
+  color: #858b92;
+  font-size: 34rpx;
+  line-height: 56rpx;
+  text-align: center;
+}
+
+.join-tip {
+  margin: 24rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 8rpx;
+  background: #fff7e6;
+  color: #8a5a00;
+  font-size: 28rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.join-tip button {
+  width: 160rpx;
+  height: 64rpx;
+  background: #39b879;
+  color: #ffffff;
+  font-size: 26rpx;
+}
+
+.players {
+  padding: 24rpx;
+}
+
+.player-card {
+  min-height: 144rpx;
+  margin-bottom: 22rpx;
+  padding: 24rpx 22rpx;
+  display: flex;
+  align-items: center;
+}
+
+.avatar-wrap {
+  width: 110rpx;
+  height: 92rpx;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.avatar {
+  width: 90rpx;
+  height: 90rpx;
+  border-radius: 12rpx;
+  color: #ffffff;
+  font-size: 38rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.owner-badge {
+  position: absolute;
+  left: 62rpx;
+  top: -16rpx;
+  min-width: 64rpx;
+  height: 42rpx;
+  padding: 0 10rpx;
+  border-radius: 20rpx 20rpx 20rpx 0;
+  background: #f15d4f;
+  color: #ffffff;
+  font-size: 22rpx;
+  line-height: 42rpx;
+  text-align: center;
+}
+
+.player-main {
+  flex: 1;
+  min-width: 0;
+  padding-left: 22rpx;
+}
+
+.player-name {
+  max-width: 330rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #303438;
+  font-size: 36rpx;
+}
+
+.score-line {
+  margin-top: 18rpx;
+  font-size: 30rpx;
+  color: #60666d;
+}
+
+.score-line.win {
+  color: #e95d4d;
+}
+
+.score-line.lose {
+  color: #60666d;
+}
+
+.score-num {
+  margin-left: 10rpx;
+  font-size: 42rpx;
+  font-weight: 700;
+}
+
+.action-group {
+  width: 248rpx;
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12rpx;
+}
+
+.give-btn,
+.undo-btn {
+  flex: 1;
+  height: 84rpx;
+  border-radius: 8rpx;
+  font-size: 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.give-btn {
+  background: #39b879;
+  color: #ffffff;
+}
+
+.undo-btn {
+  border: 1rpx solid #d7dadd;
+  background: #ffffff;
+  color: #60666d;
+  font-size: 30rpx;
+}
+
+.give-placeholder {
+  width: 248rpx;
+}
+
+.ended-mask {
+  margin: 0 24rpx;
+  padding: 24rpx;
+  border-radius: 8rpx;
+  background: #ffffff;
+  color: #8d949c;
+  text-align: center;
+  font-size: 28rpx;
+}
+
+.sheet-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.score-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 11;
+  width: 100vw;
+  padding: 38rpx 30rpx calc(34rpx + env(safe-area-inset-bottom));
+  border-radius: 18rpx 18rpx 0 0;
+  background: #eef1f3;
+  overflow: hidden;
+}
+
+.sheet-player {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  color: #303438;
+  font-size: 36rpx;
+}
+
+.sheet-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 38rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-input-row {
+  height: 98rpx;
+  margin-top: 30rpx;
+  border: 1rpx solid #d7dadd;
+  border-radius: 8rpx;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.score-input {
+  padding: 0 30rpx;
+  color: #303438;
+  font-size: 38rpx;
+  line-height: 98rpx;
+}
+
+.score-input:empty {
+  color: #a2a8af;
+}
+
+.keypad {
+  margin-top: 24rpx;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20rpx 18rpx;
+  width: 100%;
+}
+
+.keypad button {
+  width: 100%;
+  min-width: 0;
+  height: 104rpx;
+  border: 1rpx solid #d7dadd;
+  border-radius: 8rpx;
+  background: #ffffff;
+  color: #303438;
+  font-size: 42rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.keypad button.confirm {
+  background: #39b879;
+  border-color: #39b879;
+  color: #ffffff;
+  font-size: 34rpx;
+}

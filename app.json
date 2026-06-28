@@ -1,0 +1,18 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/create/create",
+    "pages/room/room",
+    "pages/join/join",
+    "pages/detail/detail",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "麻将计分神器",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#eef1f3"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
