@@ -1,5 +1,8 @@
 <view class="page home-page">
   <view class="top-actions">
+    <view class="mode-tag {{mode}}">
+      {{modeText}}
+    </view>
     <view></view>
     <navigator url="/pages/profile/profile">我的</navigator>
   </view>

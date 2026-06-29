@@ -3,7 +3,7 @@
     <view class="avatar">我</view>
     <view>
       <view class="name">个人计分工具</view>
-      <view class="muted">本版本使用本地存储；接入云开发后可多人同步。</view>
+      <view class="muted">填写云环境 ID 并部署云函数后，可让不同微信用户扫码同步。</view>
     </view>
   </view>
 

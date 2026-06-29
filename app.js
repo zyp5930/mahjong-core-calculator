@@ -1,6 +1,6 @@
 App({
   globalData: {
-    envId: '',
+    envId: 'your-cloud-env-id',
     me: null
   },
 

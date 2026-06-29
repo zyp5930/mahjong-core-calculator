@@ -24,6 +24,7 @@
           <text>{{item.toPlayerName}}</text>
           <text class="amount"> {{item.amount}} </text>
           <text>分</text>
+          <text wx:if="{{item.statusText}}" class="revoked">{{item.statusText}}</text>
         </view>
         <view class="muted time">{{item.timeText}}</view>
       </view>

@@ -30,8 +30,8 @@
     }
   },
   "compileType": "miniprogram",
-  "libVersion": "latest",
-  "appid": "wx223691631be8c4fd",
+  "libVersion": "3.15.2",
+  "appid": "wx91c86b41a92b1146",
   "projectname": "mahjong-core-calculator",
   "condition": {},
   "simulatorPluginLibVersion": {},

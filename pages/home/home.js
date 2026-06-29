@@ -3,10 +3,17 @@ const { formatDuration, formatTime } = require('../../utils/format');
 
 Page({
   data: {
-    tables: []
+    tables: [],
+    mode: 'unknown',
+    modeText: '检测中'
   },
 
-  onShow() {
+  async onShow() {
+    await store.ensureMe();
+    this.setData({
+      mode: store.getStoredMode(),
+      modeText: store.getStoredMode() === 'cloud' ? '云同步模式' : '本地模式'
+    });
     this.loadTables();
   },
 

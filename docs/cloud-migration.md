@@ -1,11 +1,11 @@
 # 云开发接入说明
 
-当前版本的页面和交互已经完成，但数据保存在本机 `wx.setStorageSync` 中。要让不同微信用户扫码进入同一牌局并实时同步，需要把 `services/store.js` 替换为云开发实现。
+当前版本已经内置云开发实现，`services/store.js` 会优先调用云函数，失败时回退本地模式。要让不同微信用户扫码进入同一牌局并实时同步，需要把云环境和云函数部署好。
 
 ## 必要步骤
 
 1. 在微信开发者工具中开通云开发。
-2. 在 `app.js` 中填写云环境 ID：
+2. 在 [app.js](/Users/zyp/Documents/mahjong-core-calculator/app.js:3) 中填写云环境 ID：
 
 ```js
 globalData: {
@@ -18,16 +18,26 @@ globalData: {
 
 ```text
 tables
-players
-score_records
 ```
 
-4. 增加一个云函数 `login`，返回调用者 `openid`。
-5. 将 `services/store.js` 中的本地读写替换为云数据库读写。
+4. 在开发者工具中分别上传并部署：
+
+```text
+cloudfunctions/login
+cloudfunctions/tableOps
+```
+
+5. 给 `tables` 集合设置读写权限：
+
+```text
+仅创建者可读写
+```
+
+或者开发阶段先使用更宽松的测试权限，等功能跑通后再收紧。
 
 ## 云端计分建议
 
-给分必须在云函数里完成，避免两个用户同时计分时分数覆盖。
+当前版本已经把给分和撤销都放到了 `tableOps` 云函数里，避免两个用户同时计分时分数覆盖。
 
 输入：
 
@@ -53,10 +63,10 @@ score_records
 
 ## 实时同步
 
-第一版可以在 `pages/room/room.js` 中定时刷新：
+当前版本在 [pages/room/room.js](/Users/zyp/Documents/mahjong-core-calculator/pages/room/room.js:1) 中使用 3 秒轮询刷新。这样部署最简单，也方便你先验证多人同步链路。
 
-```js
-setInterval(() => this.loadTable(), 3000)
-```
+后续优化建议：
 
-后续再升级为云数据库 watch 监听。
+- 改成数据库 `watch` 监听，减少请求次数。
+- 将 `tables` 拆为 `tables` + `records` 两个集合，避免单文档越积越大。
+- 增加桌主强制撤销、踢人、锁定身份等管理能力。

@@ -37,7 +37,8 @@ Page({
       players: store.sortPlayers(table.players),
       records: table.records.map((record) => ({
         ...record,
-        timeText: formatTime(record.createdAt)
+        timeText: formatTime(record.createdAt),
+        statusText: record.revoked ? '已撤销' : ''
       }))
     });
   }

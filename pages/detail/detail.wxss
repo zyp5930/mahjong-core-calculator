@@ -70,6 +70,12 @@
   font-weight: 700;
 }
 
+.revoked {
+  margin-left: 14rpx;
+  color: #8d949c;
+  font-size: 24rpx;
+}
+
 .time {
   margin-top: 12rpx;
   font-size: 24rpx;

@@ -9,6 +9,27 @@
   justify-content: space-between;
 }
 
+.mode-tag {
+  min-width: 140rpx;
+  height: 60rpx;
+  padding: 0 20rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  line-height: 60rpx;
+  text-align: center;
+}
+
+.mode-tag.cloud {
+  background: #e7f7ef;
+  color: #2f8f5b;
+}
+
+.mode-tag.local,
+.mode-tag.unknown {
+  background: #f4f6f8;
+  color: #6f7780;
+}
+
 .top-actions navigator {
   width: 120rpx;
   height: 60rpx;

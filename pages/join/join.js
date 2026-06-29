@@ -20,6 +20,7 @@ Page({
       wx.showToast({ title: '牌局不存在', icon: 'none' });
       return;
     }
+    await store.ensureMe();
     const myPlayer = store.findMyPlayer(table);
     if (myPlayer) {
       wx.redirectTo({ url: `/pages/room/room?id=${table.id}` });

@@ -10,10 +10,15 @@ Page({
     keypadVisible: false,
     targetPlayer: null,
     inputValue: '',
-    keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '取消', '0', '确认']
+    keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '取消', '0', '确认'],
+    mode: 'unknown'
   },
 
-  onLoad(options) {
+  async onLoad(options) {
+    await store.ensureMe();
+    this.setData({
+      mode: store.getStoredMode()
+    });
     const tableId = options.id || '';
     const shareCode = options.shareCode || '';
     if (tableId) {
@@ -28,6 +33,15 @@ Page({
 
   onShow() {
     if (this.data.tableId) this.loadTable();
+    this.startPolling();
+  },
+
+  onHide() {
+    this.stopPolling();
+  },
+
+  onUnload() {
+    this.stopPolling();
   },
 
   onPullDownRefresh() {
@@ -68,8 +82,23 @@ Page({
       table,
       players,
       myPlayer,
-      canGive: !!myPlayer && table.status === 'active'
+      canGive: !!myPlayer && table.status === 'active',
+      mode: store.getStoredMode()
     });
+  },
+
+  startPolling() {
+    this.stopPolling();
+    if (!this.data.tableId || store.getStoredMode() !== 'cloud') return;
+    this.pollTimer = setInterval(() => {
+      this.loadTable();
+    }, 3000);
+  },
+
+  stopPolling() {
+    if (!this.pollTimer) return;
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
   },
 
   openJoin() {
