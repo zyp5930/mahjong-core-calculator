@@ -24,6 +24,105 @@ function fail(message) {
   return { ok: false, message };
 }
 
+function maskOpenid(openid) {
+  if (!openid) return '';
+  return `***${String(openid).slice(-6)}`;
+}
+
+function getValueSummary(value) {
+  if (Array.isArray(value)) return `array(${value.length})`;
+  if (value === null) return 'null';
+  return typeof value;
+}
+
+function cleanForDb(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => cleanForDb(item))
+      .filter((item) => item !== undefined);
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value).reduce((result, key) => {
+      const cleaned = cleanForDb(value[key]);
+      if (cleaned !== undefined) {
+        result[key] = cleaned;
+      }
+      return result;
+    }, {});
+  }
+  return value === undefined ? undefined : value;
+}
+
+function findUndefinedPaths(value, prefix = 'data') {
+  if (value === undefined) return [prefix];
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) {
+    return value.reduce((paths, item, index) => (
+      paths.concat(findUndefinedPaths(item, `${prefix}[${index}]`))
+    ), []);
+  }
+  return Object.keys(value).reduce((paths, key) => (
+    paths.concat(findUndefinedPaths(value[key], `${prefix}.${key}`))
+  ), []);
+}
+
+function getTableSummary(table) {
+  if (!table) return null;
+  return {
+    id: table._id || table.id || '',
+    name: table.name,
+    shareCode: table.shareCode,
+    ownerOpenid: maskOpenid(table.ownerOpenid),
+    status: table.status,
+    playerCount: (table.players || []).length,
+    recordCount: (table.records || []).length,
+    participantCount: (table.participantOpenids || []).length,
+    topLevelKeys: Object.keys(table),
+    topLevelTypes: Object.keys(table).reduce((summary, key) => ({
+      ...summary,
+      [key]: getValueSummary(table[key])
+    }), {})
+  };
+}
+
+function getWriteSummary(data) {
+  return {
+    keys: Object.keys(data),
+    types: Object.keys(data).reduce((summary, key) => ({
+      ...summary,
+      [key]: getValueSummary(data[key])
+    }), {}),
+    players: (data.players || []).map((player, index) => ({
+      index,
+      keys: Object.keys(player),
+      id: player.id,
+      openid: maskOpenid(player.openid),
+      name: player.name,
+      avatarUrlType: getValueSummary(player.avatarUrl),
+      score: player.score
+    })),
+    records: (data.records || []).map((record, index) => ({
+      index,
+      keys: Object.keys(record),
+      id: record.id,
+      amount: record.amount,
+      revokedAtType: getValueSummary(record.revokedAt)
+    }))
+  };
+}
+
+function logError(label, error, context) {
+  console.error(label, {
+    context,
+    error,
+    message: error && error.message,
+    errCode: error && error.errCode,
+    errMsg: error && error.errMsg,
+    code: error && error.code,
+    stack: error && error.stack
+  });
+}
+
 function getErrorMessage(error) {
   const message = (error && error.message) || String(error || '');
   if (
@@ -55,14 +154,80 @@ function normalizePlayer(name, index, openid, isOwner) {
 }
 
 async function getTableById(tableId) {
-  const { data } = await db.collection('tables').doc(tableId).get();
-  return data || null;
+  try {
+    const { data } = await db.collection('tables').doc(tableId).get();
+    return data || null;
+  } catch (error) {
+    const message = (error && error.message) || String(error || '');
+    if (
+      message.includes('document') ||
+      message.includes('does not exist') ||
+      message.includes('not exist') ||
+      message.includes('DOCUMENT_NOT_EXIST')
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function updateTable(tableId, table) {
-  await db.collection('tables').doc(tableId).set({
-    data: table
+  const players = (table.players || []).map((player, index) => ({
+    id: player.id,
+    openid: player.openid || '',
+    name: String(player.name || '').trim() || `玩家${index + 1}`,
+    avatarUrl: player.avatarUrl || '',
+    score: Number(player.score) || 0,
+    isOwner: !!player.isOwner,
+    avatarColor: player.avatarColor || avatarColors[index % avatarColors.length],
+    joinedAt: player.joinedAt || Date.now()
+  }));
+  const records = (table.records || []).map((record) => ({
+    id: record.id || makeId('record'),
+    fromPlayerId: record.fromPlayerId || '',
+    fromPlayerName: record.fromPlayerName || '',
+    toPlayerId: record.toPlayerId || '',
+    toPlayerName: record.toPlayerName || '',
+    amount: Number(record.amount) || 0,
+    operatorOpenid: record.operatorOpenid || '',
+    createdAt: record.createdAt || Date.now(),
+    revoked: !!record.revoked,
+    revokedAt: record.revokedAt || null
+  }));
+  const data = {
+    name: table.name,
+    shareCode: table.shareCode,
+    ownerOpenid: table.ownerOpenid,
+    status: table.status,
+    createdAt: table.createdAt,
+    endedAt: table.endedAt || null,
+    muted: !!table.muted,
+    participantOpenids: table.participantOpenids || [],
+    players,
+    records
+  };
+  const undefinedPaths = findUndefinedPaths(data);
+  const cleanData = cleanForDb(data);
+  console.log('[tableOps updateTable before set]', {
+    tableId,
+    source: getTableSummary(table),
+    undefinedPaths,
+    write: getWriteSummary(cleanData)
   });
+  try {
+    await db.collection('tables').doc(tableId).set({
+      data: cleanData
+    });
+  } catch (error) {
+    logError('[tableOps updateTable set failed]', error, {
+      tableId,
+      source: getTableSummary(table),
+      undefinedPaths,
+      rawWrite: getWriteSummary(data),
+      cleanWrite: getWriteSummary(cleanData)
+    });
+    throw error;
+  }
   return getTableById(tableId);
 }
 
@@ -110,6 +275,16 @@ async function getTableByShareCode(shareCode) {
 async function joinTable(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) throw new Error('牌局不存在');
+  console.log('[tableOps joinTable loaded]', {
+    event: {
+      tableId: event.tableId,
+      playerId: event.playerId,
+      name: event.name,
+      hasAvatarUrl: !!event.avatarUrl
+    },
+    openid: maskOpenid(openid),
+    table: getTableSummary(table)
+  });
 
   const existing = table.players.find((player) => player.openid === openid);
   if (existing) return existing;
@@ -228,6 +403,14 @@ async function deleteTable(event, openid) {
 
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
+  console.log('[tableOps main start]', {
+    action: event && event.action,
+    event: {
+      ...event,
+      avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl
+    },
+    openid: maskOpenid(OPENID)
+  });
   try {
     switch (event.action) {
       case 'listTables':
@@ -256,6 +439,14 @@ exports.main = async (event) => {
         return fail('未知操作');
     }
   } catch (error) {
+    logError('[tableOps main failed]', error, {
+      action: event && event.action,
+      event: {
+        ...event,
+        avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl
+      },
+      openid: maskOpenid(OPENID)
+    });
     return fail(getErrorMessage(error));
   }
 };

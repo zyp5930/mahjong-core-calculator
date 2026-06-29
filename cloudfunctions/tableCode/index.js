@@ -25,6 +25,12 @@ exports.main = async (event) => {
     };
   } catch (error) {
     const errMsg = String((error && (error.errMsg || error.message)) || '');
+    const errCode = error && (error.errCode || error.code);
+    console.error('tableCode getUnlimited failed', {
+      shareCode,
+      errCode,
+      errMsg
+    });
     if (errMsg.includes('-604101') || errMsg.includes('no permission')) {
       return {
         ok: false,
@@ -33,7 +39,8 @@ exports.main = async (event) => {
     }
     return {
       ok: false,
-      message: '二维码生成失败，请稍后重试'
+      message: errCode ? `二维码生成失败：${errCode}` : '二维码生成失败，请稍后重试',
+      detail: errMsg
     };
   }
 };

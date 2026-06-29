@@ -86,6 +86,14 @@ function withTimeout(task, timeoutMessage) {
   });
 }
 
+function safeLog(label, value) {
+  try {
+    console.log(label, value);
+  } catch (error) {
+    console.log(label, String(value));
+  }
+}
+
 async function ensureMe() {
   if (cachedMe && (cachedMe.mode === 'cloud' || !hasCloudReady())) return cachedMe;
   if (!hasCloudReady()) {
@@ -117,17 +125,39 @@ async function ensureMe() {
 }
 
 async function callTableOp(action, data) {
-  const { result } = await withTimeout(
-    wx.cloud.callFunction({
-      name: 'tableOps',
-      data: {
-        action,
-        ...data
-      }
-    }),
-    '云端操作超时'
-  );
+  const payload = {
+    action,
+    ...data
+  };
+  safeLog('[tableOps request]', payload);
+  let result = null;
+  try {
+    const response = await withTimeout(
+      wx.cloud.callFunction({
+        name: 'tableOps',
+        data: payload
+      }),
+      '云端操作超时'
+    );
+    safeLog('[tableOps response]', response);
+    result = response.result;
+  } catch (error) {
+    console.error('[tableOps callFunction error]', {
+      action,
+      payload,
+      error,
+      message: error && error.message,
+      errCode: error && error.errCode,
+      errMsg: error && error.errMsg
+    });
+    throw error;
+  }
   if (!result || !result.ok) {
+    console.error('[tableOps business error]', {
+      action,
+      payload,
+      result
+    });
     throw new Error((result && result.message) || '云端操作失败');
   }
   return result.data;
@@ -336,8 +366,15 @@ async function withCloudFallback(cloudTask, localTask) {
     setStoredMode('cloud');
     return result;
   } catch (error) {
+    let localResult = null;
+    try {
+      localResult = await localTask();
+    } catch (localError) {
+      throw error;
+    }
+    if (!localResult) throw error;
     setStoredMode('local');
-    return localTask();
+    return localResult;
   }
 }
 

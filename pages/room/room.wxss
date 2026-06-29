@@ -14,13 +14,24 @@
 }
 
 .tool {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: #676d74;
   font-size: 26rpx;
+  line-height: 1.2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10rpx;
+}
+
+.tool::after {
+  border: 0;
 }
 
 .tool-icon {
@@ -42,14 +53,28 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 20rpx;
+}
+
+.join-tip text {
+  flex: 1;
+  min-width: 0;
 }
 
 .join-tip button {
   width: 160rpx;
   height: 64rpx;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
   background: #39b879;
   color: #ffffff;
   font-size: 26rpx;
+  line-height: 64rpx;
+}
+
+.join-tip button::after {
+  border: 0;
 }
 
 .players {
