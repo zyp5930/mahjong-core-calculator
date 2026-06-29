@@ -36,5 +36,6 @@
   "condition": {},
   "simulatorPluginLibVersion": {},
   "editorSetting": {},
+  "cloudfunctionRoot": "cloudfunctions/",
   "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
 }
