@@ -7,15 +7,33 @@ cloud.init({
 exports.main = async (event) => {
   const shareCode = String((event && event.shareCode) || '').trim();
   if (!shareCode) {
-    throw new Error('缺少分享码');
+    return {
+      ok: false,
+      message: '缺少分享码'
+    };
   }
-  const result = await cloud.openapi.wxacode.getUnlimited({
-    scene: `shareCode=${shareCode}`,
-    page: 'pages/room/room',
-    checkPath: false,
-    envVersion: 'trial'
-  });
-  return {
-    buffer: result.buffer.toString('base64')
-  };
+  try {
+    const result = await cloud.openapi.wxacode.getUnlimited({
+      scene: `shareCode=${shareCode}`,
+      page: 'pages/room/room',
+      checkPath: false,
+      envVersion: 'trial'
+    });
+    return {
+      ok: true,
+      buffer: result.buffer.toString('base64')
+    };
+  } catch (error) {
+    const errMsg = String((error && (error.errMsg || error.message)) || '');
+    if (errMsg.includes('-604101') || errMsg.includes('no permission')) {
+      return {
+        ok: false,
+        message: 'tableCode 云函数缺少生成二维码权限，请重新上传部署'
+      };
+    }
+    return {
+      ok: false,
+      message: '二维码生成失败，请稍后重试'
+    };
+  }
 };

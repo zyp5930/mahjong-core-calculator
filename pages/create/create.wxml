@@ -7,5 +7,10 @@
     <view class="hint">创建后默认只有你自己，牌友可通过微信卡片加入。</view>
   </view>
 
-  <button class="primary-btn submit" bindtap="createTable">创建并进入牌局</button>
+  <button
+    class="primary-btn submit"
+    loading="{{creating}}"
+    disabled="{{creating}}"
+    bindtap="createTable"
+  >创建并进入牌局</button>
 </view>

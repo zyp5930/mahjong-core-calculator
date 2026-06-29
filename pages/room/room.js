@@ -119,9 +119,11 @@ Page({
 
   async openInvite() {
     if (!this.data.table || !this.data.table.shareCode) return;
+    await store.ensureMe();
+    this.setData({ mode: store.getStoredMode() });
     if (store.getStoredMode() !== 'cloud') {
       wx.showToast({
-        title: '请先配置云开发并部署二维码云函数',
+        title: '当前牌局为本地模式，请重新创建云端牌局',
         icon: 'none'
       });
       return;

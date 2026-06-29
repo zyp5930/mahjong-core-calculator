@@ -3,6 +3,7 @@ const { makeId, makeShareCode } = require('../utils/format');
 const STORAGE_KEY = 'mahjong_tables_v1';
 const OPENID_KEY = 'mahjong_local_openid_v1';
 const MODE_KEY = 'mahjong_store_mode_v1';
+const CLOUD_TIMEOUT_MS = 6000;
 
 const avatarColors = ['#6b9fe8', '#45b7a8', '#f16f5d', '#8a7ee8', '#d69a25', '#5f7285'];
 
@@ -52,7 +53,7 @@ function sortPlayers(players) {
 }
 
 function findMyPlayer(table) {
-  const openid = getLocalOpenid();
+  const openid = cachedMe && cachedMe.openid ? cachedMe.openid : getLocalOpenid();
   return table.players.find((player) => player.openid === openid) || null;
 }
 
@@ -65,12 +66,28 @@ function setStoredMode(mode) {
 }
 
 function hasCloudReady() {
-  const app = getApp ? getApp() : null;
+  const app = typeof getApp === 'function' ? getApp() : null;
   return !!(wx.cloud && app && app.globalData && app.globalData.envId);
 }
 
+function withTimeout(task, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, CLOUD_TIMEOUT_MS);
+
+    task.then((result) => {
+      clearTimeout(timer);
+      resolve(result);
+    }).catch((error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+
 async function ensureMe() {
-  if (cachedMe) return cachedMe;
+  if (cachedMe && (cachedMe.mode === 'cloud' || !hasCloudReady())) return cachedMe;
   if (!hasCloudReady()) {
     cachedMe = {
       openid: getLocalOpenid(),
@@ -79,9 +96,10 @@ async function ensureMe() {
     return cachedMe;
   }
   try {
-    const { result } = await wx.cloud.callFunction({
-      name: 'login'
-    });
+    const { result } = await withTimeout(
+      wx.cloud.callFunction({ name: 'login' }),
+      '云登录超时'
+    );
     cachedMe = {
       openid: result.openid,
       mode: 'cloud'
@@ -99,13 +117,16 @@ async function ensureMe() {
 }
 
 async function callTableOp(action, data) {
-  const { result } = await wx.cloud.callFunction({
-    name: 'tableOps',
-    data: {
-      action,
-      ...data
-    }
-  });
+  const { result } = await withTimeout(
+    wx.cloud.callFunction({
+      name: 'tableOps',
+      data: {
+        action,
+        ...data
+      }
+    }),
+    '云端操作超时'
+  );
   if (!result || !result.ok) {
     throw new Error((result && result.message) || '云端操作失败');
   }
@@ -113,11 +134,20 @@ async function callTableOp(action, data) {
 }
 
 async function getTableCode(shareCode) {
-  const { result } = await wx.cloud.callFunction({
-    name: 'tableCode',
-    data: { shareCode }
-  });
-  return result && result.buffer ? `data:image/png;base64,${result.buffer}` : '';
+  const { result } = await withTimeout(
+    wx.cloud.callFunction({
+      name: 'tableCode',
+      data: { shareCode }
+    }),
+    '二维码生成超时'
+  );
+  if (!result || result.ok === false) {
+    throw new Error((result && result.message) || '二维码生成失败');
+  }
+  if (!result.buffer) {
+    throw new Error('二维码生成失败');
+  }
+  return `data:image/png;base64,${result.buffer}`;
 }
 
 function normalizeCloudTable(table) {
@@ -307,8 +337,18 @@ async function withCloudFallback(cloudTask, localTask) {
     return result;
   } catch (error) {
     setStoredMode('local');
-    throw error;
+    return localTask();
   }
+}
+
+async function withCloudOnly(cloudTask) {
+  const me = await ensureMe();
+  if (me.mode !== 'cloud') {
+    throw new Error('云开发连接失败，请检查云环境或重新编译');
+  }
+  const result = await cloudTask();
+  setStoredMode('cloud');
+  return result;
 }
 
 async function listTables() {
@@ -336,9 +376,8 @@ async function getTableByShareCode(shareCode) {
 }
 
 async function createTable(payload) {
-  return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('createTable', payload)),
-    () => createTableLocal(payload)
+  return withCloudOnly(
+    async () => normalizeCloudTable(await callTableOp('createTable', payload))
   );
 }
 

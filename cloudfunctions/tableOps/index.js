@@ -24,6 +24,22 @@ function fail(message) {
   return { ok: false, message };
 }
 
+function getErrorMessage(error) {
+  const message = (error && error.message) || String(error || '');
+  if (
+    message.includes('collection') ||
+    message.includes('DATABASE_COLLECTION_NOT_EXIST') ||
+    message.includes('collection not exists') ||
+    message.includes('Db or Table not exist')
+  ) {
+    return '云数据库缺少 tables 集合，请先在云开发控制台创建';
+  }
+  if (message.includes('permission') || message.includes('PERMISSION_DENIED')) {
+    return '云数据库权限不足，请检查 tables 集合权限';
+  }
+  return message || '云函数执行失败';
+}
+
 function normalizePlayer(name, index, openid, isOwner) {
   const trimmed = String(name || '').trim() || `玩家${index + 1}`;
   return {
@@ -240,6 +256,6 @@ exports.main = async (event) => {
         return fail('未知操作');
     }
   } catch (error) {
-    return fail(error.message || '云函数执行失败');
+    return fail(getErrorMessage(error));
   }
 };

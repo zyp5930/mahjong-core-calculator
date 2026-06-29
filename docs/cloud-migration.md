@@ -25,7 +25,10 @@ tables
 ```text
 cloudfunctions/login
 cloudfunctions/tableOps
+cloudfunctions/tableCode
 ```
+
+`tableCode` 需要随目录里的 `config.json` 一起上传部署，它声明了 `wxacode.getUnlimited` 云调用权限。缺少这个文件或没有重新部署时，生成二维码会报 `-604101 function has no permission to call this API`。
 
 5. 给 `tables` 集合设置读写权限：
 
