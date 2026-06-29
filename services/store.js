@@ -3,14 +3,28 @@ const { makeId, makeShareCode } = require('../utils/format');
 const STORAGE_KEY = 'mahjong_tables_v1';
 const OPENID_KEY = 'mahjong_local_openid_v1';
 const MODE_KEY = 'mahjong_store_mode_v1';
+const NOTICE_SEEN_KEY = 'mahjong_notice_seen_v1';
 const CLOUD_TIMEOUT_MS = 6000;
 
 const avatarColors = ['#6b9fe8', '#45b7a8', '#f16f5d', '#8a7ee8', '#d69a25', '#5f7285'];
 
 let cachedMe = null;
+const avatarUrlCache = {};
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function makeNotification(type, targetOpenid, title, content, extra) {
+  return {
+    id: makeId('notice'),
+    type,
+    targetOpenid: targetOpenid || '',
+    title: String(title || '').trim(),
+    content: String(content || '').trim(),
+    createdAt: Date.now(),
+    ...extra
+  };
 }
 
 function getLocalOpenid() {
@@ -30,6 +44,34 @@ function writeTables(tables) {
   wx.setStorageSync(STORAGE_KEY, tables);
 }
 
+function getSeenNoticeMap() {
+  return wx.getStorageSync(NOTICE_SEEN_KEY) || {};
+}
+
+function setSeenNoticeMap(map) {
+  wx.setStorageSync(NOTICE_SEEN_KEY, map);
+}
+
+function isNoticeSeen(tableId, noticeId) {
+  const openid = cachedMe && cachedMe.openid ? cachedMe.openid : getLocalOpenid();
+  const seenMap = getSeenNoticeMap();
+  const key = `${tableId}:${openid}`;
+  const seenIds = seenMap[key] || [];
+  return seenIds.includes(noticeId);
+}
+
+function markNoticeSeen(tableId, noticeId) {
+  const openid = cachedMe && cachedMe.openid ? cachedMe.openid : getLocalOpenid();
+  const seenMap = getSeenNoticeMap();
+  const key = `${tableId}:${openid}`;
+  const seenIds = seenMap[key] || [];
+  if (!seenIds.includes(noticeId)) {
+    seenIds.push(noticeId);
+    seenMap[key] = seenIds.slice(-50);
+    setSeenNoticeMap(seenMap);
+  }
+}
+
 function getTableIndex(tables, tableId) {
   return tables.findIndex((item) => item.id === tableId);
 }
@@ -41,6 +83,7 @@ function normalizePlayer(name, index, isOwner) {
     openid: isOwner ? getLocalOpenid() : '',
     name: trimmed,
     avatarUrl: '',
+    avatarFileId: '',
     score: 0,
     isOwner: !!isOwner,
     avatarColor: avatarColors[index % avatarColors.length],
@@ -92,6 +135,59 @@ function safeLog(label, value) {
   } catch (error) {
     console.log(label, String(value));
   }
+}
+
+function isCloudAvatarUrl(avatarUrl) {
+  return /^cloud:\/\//.test(String(avatarUrl || ''));
+}
+
+function isTempAvatarUrl(avatarUrl) {
+  const value = String(avatarUrl || '');
+  return /^wxfile:\/\//.test(value) || /^http:\/\/tmp\//.test(value) || /^https?:\/\/tmp\//.test(value);
+}
+
+function isRemoteAvatarUrl(avatarUrl) {
+  return /^https?:\/\//.test(String(avatarUrl || '')) && !isTempAvatarUrl(avatarUrl);
+}
+
+function getAvatarExtension(avatarUrl) {
+  const matched = String(avatarUrl || '').match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+  return matched ? matched[1].toLowerCase() : 'jpg';
+}
+
+async function uploadCloudAvatar(avatarUrl) {
+  if (!avatarUrl || isCloudAvatarUrl(avatarUrl)) return avatarUrl || '';
+  if (isRemoteAvatarUrl(avatarUrl)) return '';
+  if (!wx.cloud || !wx.cloud.uploadFile) return avatarUrl;
+  const me = await ensureMe();
+  if (me.mode !== 'cloud') return avatarUrl;
+  const extension = getAvatarExtension(avatarUrl);
+  const cloudPath = `avatars/${me.openid}/${Date.now()}.${extension}`;
+  const { fileID } = await wx.cloud.uploadFile({
+    cloudPath,
+    filePath: avatarUrl
+  });
+  return fileID || avatarUrl;
+}
+
+async function resolveCloudAvatarUrl(avatarFileId, fallbackUrl) {
+  if (!isCloudAvatarUrl(avatarFileId) || !wx.cloud || !wx.cloud.getTempFileURL) {
+    return fallbackUrl || avatarFileId || '';
+  }
+  if (avatarUrlCache[avatarFileId]) return avatarUrlCache[avatarFileId];
+  try {
+    const result = await wx.cloud.getTempFileURL({
+      fileList: [avatarFileId]
+    });
+    const file = result.fileList && result.fileList[0];
+    if (file && file.tempFileURL) {
+      avatarUrlCache[avatarFileId] = file.tempFileURL;
+      return file.tempFileURL;
+    }
+  } catch (error) {
+    console.error('[avatar getTempFileURL error]', error);
+  }
+  return fallbackUrl || avatarFileId;
 }
 
 async function ensureMe() {
@@ -180,20 +276,31 @@ async function getTableCode(shareCode) {
   return `data:image/png;base64,${result.buffer}`;
 }
 
-function normalizeCloudTable(table) {
+async function normalizeCloudTable(table) {
   if (!table) return null;
   const id = table._id || table.id;
+  const players = await Promise.all((table.players || []).map(async (player, index) => {
+    const avatarFileId = player.avatarFileId || (isCloudAvatarUrl(player.avatarUrl) ? player.avatarUrl : '');
+    const fallbackUrl = isCloudAvatarUrl(player.avatarUrl) ? '' : (player.avatarUrl || '');
+    return {
+      ...player,
+      id: player.id || player._id || `${id}_player_${index}`,
+      avatarUrl: fallbackUrl || await resolveCloudAvatarUrl(avatarFileId, ''),
+      avatarFileId,
+      avatarColor: player.avatarColor || avatarColors[index % avatarColors.length]
+    };
+  }));
   return {
     ...table,
     id,
-    players: (table.players || []).map((player, index) => ({
-      ...player,
-      id: player.id || player._id || `${id}_player_${index}`,
-      avatarColor: player.avatarColor || avatarColors[index % avatarColors.length]
-    })),
+    players,
     records: (table.records || []).map((record, index) => ({
       ...record,
       id: record.id || `${id}_record_${index}`
+    })),
+    notifications: (table.notifications || []).map((item, index) => ({
+      ...item,
+      id: item.id || `${id}_notice_${index}`
     }))
   };
 }
@@ -215,6 +322,11 @@ async function getTableByShareCodeLocal(shareCode) {
 async function createTableLocal(payload) {
   const names = payload.playerNames.filter((item) => String(item || '').trim());
   const playerNames = names.length ? names : ['我', '玩家2', '玩家3', '玩家4'];
+  const players = playerNames.map((name, index) => normalizePlayer(name, index, index === 0));
+  if (players[0] && payload.ownerAvatarUrl) {
+    players[0].avatarUrl = payload.ownerAvatarUrl;
+    players[0].avatarFileId = payload.ownerAvatarUrl;
+  }
   const table = {
     id: makeId('table'),
     name: payload.name || '麻将计分桌',
@@ -222,10 +334,12 @@ async function createTableLocal(payload) {
     ownerOpenid: getLocalOpenid(),
     status: 'active',
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     endedAt: null,
     muted: false,
-    players: playerNames.map((name, index) => normalizePlayer(name, index, index === 0)),
-    records: []
+    players,
+    records: [],
+    notifications: []
   };
   const tables = readTables();
   tables.unshift(table);
@@ -252,7 +366,9 @@ async function joinTableLocal(tableId, playerId, name, avatarUrl) {
   player.openid = openid;
   player.name = String(name || player.name).trim() || player.name;
   player.avatarUrl = avatarUrl || player.avatarUrl || '';
+  player.avatarFileId = avatarUrl || player.avatarFileId || '';
   player.joinedAt = Date.now();
+  table.updatedAt = Date.now();
   writeTables(tables);
   return clone(player);
 }
@@ -270,6 +386,7 @@ async function updateMyProfileLocal(tableId, payload) {
   player.name = name;
   if (payload && payload.avatarUrl !== undefined) {
     player.avatarUrl = payload.avatarUrl || '';
+    player.avatarFileId = payload.avatarUrl || '';
   }
   writeTables(tables);
   return clone(player);
@@ -292,6 +409,7 @@ async function giveScoreLocal(tableId, fromPlayerId, toPlayerId, amount) {
 
   fromPlayer.score -= value;
   toPlayer.score += value;
+  table.updatedAt = Date.now();
   table.records.unshift({
     id: makeId('record'),
     fromPlayerId,
@@ -331,6 +449,23 @@ async function undoLastGiveLocal(tableId, fromPlayerId, toPlayerId) {
   toPlayer.score -= record.amount;
   record.revoked = true;
   record.revokedAt = Date.now();
+  table.updatedAt = Date.now();
+  if (toPlayer.openid) {
+    table.notifications = table.notifications || [];
+    table.notifications.unshift(makeNotification(
+      'undo',
+      toPlayer.openid,
+      '计分已撤销',
+      `${fromPlayer.name} 撤销了给你的 ${record.amount} 分`,
+      {
+        tableId,
+        fromPlayerId,
+        toPlayerId,
+        amount: record.amount,
+        recordId: record.id
+      }
+    ));
+  }
   writeTables(tables);
   return clone(table);
 }
@@ -392,7 +527,7 @@ async function listTables() {
   return withCloudFallback(
     async () => {
       const tables = await callTableOp('listTables', {});
-      return tables.map(normalizeCloudTable);
+      return Promise.all(tables.map(normalizeCloudTable));
     },
     listTablesLocal
   );
@@ -414,20 +549,36 @@ async function getTableByShareCode(shareCode) {
 
 async function createTable(payload) {
   return withCloudOnly(
-    async () => normalizeCloudTable(await callTableOp('createTable', payload))
+    async () => {
+      const savedPayload = { ...payload };
+      if (savedPayload.ownerAvatarUrl) {
+        savedPayload.ownerAvatarUrl = await uploadCloudAvatar(savedPayload.ownerAvatarUrl);
+      }
+      return normalizeCloudTable(await callTableOp('createTable', savedPayload));
+    }
   );
 }
 
 async function joinTable(tableId, playerId, name, avatarUrl) {
   return withCloudFallback(
-    () => callTableOp('joinTable', { tableId, playerId, name, avatarUrl }),
+    async () => {
+      const savedAvatarUrl = await uploadCloudAvatar(avatarUrl);
+      return callTableOp('joinTable', { tableId, playerId, name, avatarFileId: savedAvatarUrl });
+    },
     () => joinTableLocal(tableId, playerId, name, avatarUrl)
   );
 }
 
 async function updateMyProfile(tableId, payload) {
   return withCloudFallback(
-    () => callTableOp('updateMyProfile', { tableId, ...payload }),
+    async () => {
+      const savedPayload = { ...payload };
+      if (savedPayload.avatarUrl !== undefined) {
+        savedPayload.avatarFileId = await uploadCloudAvatar(savedPayload.avatarUrl);
+        delete savedPayload.avatarUrl;
+      }
+      return callTableOp('updateMyProfile', { tableId, ...savedPayload });
+    },
     () => updateMyProfileLocal(tableId, payload)
   );
 }

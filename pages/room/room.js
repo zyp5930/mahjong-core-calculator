@@ -15,7 +15,13 @@ Page({
     inviteVisible: false,
     inviteCodeImage: '',
     inviteLoading: false,
-    pendingAutoInvite: false
+    pendingAutoInvite: false,
+    refreshTimer: null,
+    tableWatcher: null,
+    noticeTimer: null,
+    notices: [],
+    noticeVisible: false,
+    noticeText: ''
   },
 
   async onLoad(options) {
@@ -40,14 +46,18 @@ Page({
   onShow() {
     if (this.data.tableId) this.loadTable();
     this.startPolling();
+    this.startWatching();
+    this.pullNotices();
   },
 
   onHide() {
     this.stopPolling();
+    this.stopWatching();
   },
 
   onUnload() {
     this.stopPolling();
+    this.stopWatching();
   },
 
   onPullDownRefresh() {
@@ -89,8 +99,10 @@ Page({
       players,
       myPlayer,
       canGive: !!myPlayer && table.status === 'active',
-      mode: store.getStoredMode()
+      mode: store.getStoredMode(),
+      notices: (table.notifications || []).filter((item) => !myPlayer || !item.targetOpenid || item.targetOpenid === myPlayer.openid)
     });
+    this.showPendingNotice();
     if (this.data.pendingAutoInvite) {
       this.setData({ pendingAutoInvite: false });
       this.openInvite();
@@ -109,6 +121,64 @@ Page({
     if (!this.pollTimer) return;
     clearInterval(this.pollTimer);
     this.pollTimer = null;
+  },
+
+  startWatching() {
+    this.stopWatching();
+    if (!this.data.tableId || store.getStoredMode() !== 'cloud' || !wx.cloud || !wx.cloud.database) return;
+    try {
+      const db = wx.cloud.database();
+      this.tableWatcher = db.collection('tables').doc(this.data.tableId).watch({
+        onChange: () => {
+          this.loadTable();
+          this.pullNotices();
+        },
+        onError: () => {
+          this.stopWatching();
+        }
+      });
+    } catch (error) {
+      this.stopWatching();
+    }
+  },
+
+  stopWatching() {
+    if (this.tableWatcher && typeof this.tableWatcher.close === 'function') {
+      this.tableWatcher.close();
+    }
+    this.tableWatcher = null;
+  },
+
+  pullNotices() {
+    this.stopNoticeTimer();
+    this.noticeTimer = setInterval(() => {
+      this.showPendingNotice();
+    }, 1000);
+  },
+
+  stopNoticeTimer() {
+    if (!this.noticeTimer) return;
+    clearInterval(this.noticeTimer);
+    this.noticeTimer = null;
+  },
+
+  showPendingNotice() {
+    const notices = this.data.notices || [];
+    const unread = notices.find((item) => !store.isNoticeSeen(this.data.tableId, item.id));
+    if (!unread) return;
+    store.markNoticeSeen(this.data.tableId, unread.id);
+    this.setData({
+      noticeVisible: true,
+      noticeText: `${unread.title}：${unread.content}`,
+      notices
+    });
+  },
+
+  closeNotice() {
+    this.setData({
+      noticeVisible: false,
+      noticeText: ''
+    });
   },
 
   openJoin() {

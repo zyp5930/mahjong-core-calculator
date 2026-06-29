@@ -148,6 +148,11 @@
   justify-content: center;
 }
 
+.image-avatar {
+  display: block;
+  background: #dfe3e6;
+}
+
 .player-chip text {
   display: block;
   overflow: hidden;

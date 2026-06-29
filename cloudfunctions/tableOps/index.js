@@ -99,6 +99,7 @@ function getWriteSummary(data) {
       openid: maskOpenid(player.openid),
       name: player.name,
       avatarUrlType: getValueSummary(player.avatarUrl),
+      avatarFileIdType: getValueSummary(player.avatarFileId),
       score: player.score
     })),
     records: (data.records || []).map((record, index) => ({
@@ -146,10 +147,23 @@ function normalizePlayer(name, index, openid, isOwner) {
     openid: isOwner ? openid : '',
     name: trimmed,
     avatarUrl: '',
+    avatarFileId: '',
     score: 0,
     isOwner: !!isOwner,
     avatarColor: avatarColors[index % avatarColors.length],
     joinedAt: Date.now()
+  };
+}
+
+function makeNotification(type, targetOpenid, title, content, extra) {
+  return {
+    id: makeId('notice'),
+    type,
+    targetOpenid: targetOpenid || '',
+    title: String(title || '').trim(),
+    content: String(content || '').trim(),
+    createdAt: Date.now(),
+    ...extra
   };
 }
 
@@ -171,12 +185,56 @@ async function getTableById(tableId) {
   }
 }
 
+function canReadTable(table, openid) {
+  if (!table || !openid) return false;
+  return table.ownerOpenid === openid || (table.participantOpenids || []).includes(openid);
+}
+
+async function attachAvatarUrls(table, openid) {
+  if (!table || !canReadTable(table, openid)) return table;
+  const players = table.players || [];
+  const avatarFileIds = Array.from(new Set(players
+    .map((player) => player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : ''))
+    .filter(Boolean)));
+  if (!avatarFileIds.length) return table;
+  try {
+    const result = await cloud.getTempFileURL({
+      fileList: avatarFileIds
+    });
+    const urlMap = (result.fileList || []).reduce((map, item) => {
+      if (item.fileID && item.tempFileURL) {
+        map[item.fileID] = item.tempFileURL;
+      }
+      return map;
+    }, {});
+    return {
+      ...table,
+      players: players.map((player) => {
+        const avatarFileId = player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : '');
+        return {
+          ...player,
+          avatarFileId,
+          avatarUrl: urlMap[avatarFileId] || ''
+        };
+      })
+    };
+  } catch (error) {
+    logError('[tableOps attachAvatarUrls failed]', error, {
+      tableId: table._id || table.id || '',
+      openid: maskOpenid(openid),
+      avatarCount: avatarFileIds.length
+    });
+    return table;
+  }
+}
+
 async function updateTable(tableId, table) {
   const players = (table.players || []).map((player, index) => ({
     id: player.id,
     openid: player.openid || '',
     name: String(player.name || '').trim() || `玩家${index + 1}`,
-    avatarUrl: player.avatarUrl || '',
+    avatarUrl: '',
+    avatarFileId: player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : ''),
     score: Number(player.score) || 0,
     isOwner: !!player.isOwner,
     avatarColor: player.avatarColor || avatarColors[index % avatarColors.length],
@@ -200,11 +258,27 @@ async function updateTable(tableId, table) {
     ownerOpenid: table.ownerOpenid,
     status: table.status,
     createdAt: table.createdAt,
+    updatedAt: table.updatedAt || table.createdAt || Date.now(),
     endedAt: table.endedAt || null,
     muted: !!table.muted,
     participantOpenids: table.participantOpenids || [],
     players,
-    records
+    records,
+    notifications: (table.notifications || []).map((item) => ({
+      id: item.id || makeId('notice'),
+      type: item.type || 'system',
+      targetOpenid: item.targetOpenid || '',
+      title: String(item.title || '').trim(),
+      content: String(item.content || '').trim(),
+      createdAt: item.createdAt || Date.now(),
+      tableId: item.tableId || table._id || table.id || '',
+      fromPlayerId: item.fromPlayerId || '',
+      toPlayerId: item.toPlayerId || '',
+      amount: Number(item.amount) || 0,
+      recordId: item.recordId || '',
+      readBy: item.readBy || [],
+      readAt: item.readAt || null
+    }))
   };
   const undefinedPaths = findUndefinedPaths(data);
   const cleanData = cleanForDb(data);
@@ -238,38 +312,45 @@ async function listTables(openid) {
     })
     .orderBy('createdAt', 'desc')
     .get();
-  return data;
+  return Promise.all(data.map((table) => attachAvatarUrls(table, openid)));
 }
 
 async function createTable(event, openid) {
   const names = (event.playerNames || []).filter((item) => String(item || '').trim());
   const playerNames = names.length ? names : ['我', '玩家2', '玩家3', '玩家4'];
+  const players = playerNames.map((name, index) => normalizePlayer(name, index, openid, index === 0));
+  if (players[0] && event.ownerAvatarUrl) {
+    players[0].avatarFileId = event.ownerAvatarUrl;
+    players[0].avatarUrl = '';
+  }
   const table = {
     name: event.name || '麻将计分桌',
     shareCode: makeShareCode(),
     ownerOpenid: openid,
     status: 'active',
     createdAt: Date.now(),
+    updatedAt: Date.now(),
     endedAt: null,
     muted: false,
     participantOpenids: [openid],
-    players: playerNames.map((name, index) => normalizePlayer(name, index, openid, index === 0)),
-    records: []
+    players,
+    records: [],
+    notifications: []
   };
   const result = await db.collection('tables').add({ data: table });
-  return getTableById(result._id);
+  return attachAvatarUrls(await getTableById(result._id), openid);
 }
 
-async function getTable(tableId) {
-  return getTableById(tableId);
+async function getTable(tableId, openid) {
+  return attachAvatarUrls(await getTableById(tableId), openid);
 }
 
-async function getTableByShareCode(shareCode) {
+async function getTableByShareCode(shareCode, openid) {
   const { data } = await db.collection('tables')
     .where({ shareCode })
     .limit(1)
     .get();
-  return data[0] || null;
+  return attachAvatarUrls(data[0] || null, openid);
 }
 
 async function joinTable(event, openid) {
@@ -280,7 +361,8 @@ async function joinTable(event, openid) {
       tableId: event.tableId,
       playerId: event.playerId,
       name: event.name,
-      hasAvatarUrl: !!event.avatarUrl
+      hasAvatarUrl: !!event.avatarUrl,
+      hasAvatarFileId: !!event.avatarFileId
     },
     openid: maskOpenid(openid),
     table: getTableSummary(table)
@@ -299,11 +381,14 @@ async function joinTable(event, openid) {
 
   player.openid = openid;
   player.name = String(event.name || player.name).trim() || player.name;
-  player.avatarUrl = event.avatarUrl || player.avatarUrl || '';
+  player.avatarFileId = event.avatarFileId || event.avatarUrl || player.avatarFileId || '';
+  player.avatarUrl = '';
   player.joinedAt = Date.now();
   table.participantOpenids = Array.from(new Set([...(table.participantOpenids || []), openid]));
-  await updateTable(event.tableId, table);
-  return player;
+  table.updatedAt = Date.now();
+  const updatedTable = await updateTable(event.tableId, table);
+  const updatedPlayer = (updatedTable.players || []).find((item) => item.id === player.id) || player;
+  return (await attachAvatarUrls({ ...updatedTable, players: [updatedPlayer] }, openid)).players[0];
 }
 
 async function updateMyProfile(event, openid) {
@@ -315,11 +400,13 @@ async function updateMyProfile(event, openid) {
   const name = String(event.name || '').trim();
   if (!name) throw new Error('请输入昵称');
   player.name = name;
-  if (event.avatarUrl !== undefined) {
-    player.avatarUrl = event.avatarUrl || '';
+  if (event.avatarFileId !== undefined || event.avatarUrl !== undefined) {
+    player.avatarFileId = event.avatarFileId || event.avatarUrl || '';
+    player.avatarUrl = '';
   }
-  await updateTable(event.tableId, table);
-  return player;
+  const updatedTable = await updateTable(event.tableId, table);
+  const updatedPlayer = (updatedTable.players || []).find((item) => item.id === player.id) || player;
+  return (await attachAvatarUrls({ ...updatedTable, players: [updatedPlayer] }, openid)).players[0];
 }
 
 async function giveScore(event, openid) {
@@ -338,6 +425,7 @@ async function giveScore(event, openid) {
 
   fromPlayer.score -= amount;
   toPlayer.score += amount;
+  table.updatedAt = Date.now();
   table.records.unshift({
     id: makeId('record'),
     fromPlayerId: fromPlayer.id,
@@ -374,6 +462,23 @@ async function undoLastGive(event, openid) {
   toPlayer.score -= record.amount;
   record.revoked = true;
   record.revokedAt = Date.now();
+  table.updatedAt = Date.now();
+  if (toPlayer.openid) {
+    table.notifications = table.notifications || [];
+    table.notifications.unshift(makeNotification(
+      'undo',
+      toPlayer.openid,
+      '计分已撤销',
+      `${fromPlayer.name} 撤销了给你的 ${record.amount} 分`,
+      {
+        tableId: event.tableId,
+        fromPlayerId: fromPlayer.id,
+        toPlayerId: toPlayer.id,
+        amount: record.amount,
+        recordId: record.id
+      }
+    ));
+  }
   return updateTable(event.tableId, table);
 }
 
@@ -407,7 +512,8 @@ exports.main = async (event) => {
     action: event && event.action,
     event: {
       ...event,
-      avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl
+      avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl,
+      avatarFileId: event && event.avatarFileId ? `[avatarFileId length ${String(event.avatarFileId).length}]` : event && event.avatarFileId
     },
     openid: maskOpenid(OPENID)
   });
@@ -418,9 +524,9 @@ exports.main = async (event) => {
       case 'createTable':
         return ok(await createTable(event, OPENID));
       case 'getTable':
-        return ok(await getTable(event.tableId));
+        return ok(await getTable(event.tableId, OPENID));
       case 'getTableByShareCode':
-        return ok(await getTableByShareCode(event.shareCode));
+        return ok(await getTableByShareCode(event.shareCode, OPENID));
       case 'joinTable':
         return ok(await joinTable(event, OPENID));
       case 'updateMyProfile':
@@ -443,7 +549,8 @@ exports.main = async (event) => {
       action: event && event.action,
       event: {
         ...event,
-        avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl
+        avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl,
+        avatarFileId: event && event.avatarFileId ? `[avatarFileId length ${String(event.avatarFileId).length}]` : event && event.avatarFileId
       },
       openid: maskOpenid(OPENID)
     });

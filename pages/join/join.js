@@ -8,6 +8,7 @@ Page({
     selectedId: '',
     name: '微信用户',
     avatarUrl: '',
+    avatarFileId: '',
     myPlayer: null
   },
 
@@ -33,7 +34,8 @@ Page({
         })),
         myPlayer,
         name: myPlayer.name || '',
-        avatarUrl: myPlayer.avatarUrl || ''
+        avatarUrl: myPlayer.avatarUrl || myPlayer.avatarFileId || '',
+        avatarFileId: myPlayer.avatarFileId || ''
       });
       return;
     }
@@ -45,7 +47,8 @@ Page({
       })),
       myPlayer: null,
       selectedId: '',
-      avatarUrl: ''
+      avatarUrl: '',
+      avatarFileId: ''
     });
   },
 
@@ -68,7 +71,8 @@ Page({
 
   onChooseAvatar(event) {
     this.setData({
-      avatarUrl: event.detail.avatarUrl || ''
+      avatarUrl: event.detail.avatarUrl || '',
+      avatarFileId: ''
     });
   },
 
@@ -81,7 +85,7 @@ Page({
       if (this.data.myPlayer) {
         await store.updateMyProfile(this.data.tableId, {
           name: this.data.name,
-          avatarUrl: this.data.avatarUrl
+          avatarUrl: this.data.avatarFileId || this.data.avatarUrl
         });
       } else {
         await store.joinTable(

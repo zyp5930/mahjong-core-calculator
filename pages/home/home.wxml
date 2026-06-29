@@ -28,7 +28,8 @@
       </view>
       <view class="players">
         <view class="player-chip" wx:for="{{item.players}}" wx:key="id">
-          <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
+          <image wx:if="{{item.avatarUrl}}" class="avatar image-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+          <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
           <text>{{item.name}}</text>
           <text class="{{item.score >= 0 ? 'score win' : 'score lose'}}">{{item.score}}</text>
         </view>

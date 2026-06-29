@@ -4,6 +4,23 @@
       <text class="label">牌局名称</text>
       <input value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
     </view>
+    <view class="field">
+      <text class="label">桌主头像</text>
+      <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image wx:if="{{ownerAvatarUrl}}" class="avatar-preview" src="{{ownerAvatarUrl}}" mode="aspectFill"></image>
+        <view wx:else class="avatar-fallback">{{ownerName.slice(0, 1) || '微'}}</view>
+        <view class="avatar-copy">{{ownerAvatarUrl ? '重新选择头像' : '选择微信头像'}}</view>
+      </button>
+    </view>
+    <view class="field">
+      <text class="label">桌主昵称</text>
+      <input
+        type="nickname"
+        value="{{ownerName}}"
+        bindinput="onOwnerNameInput"
+        placeholder="输入你的微信昵称"
+      />
+    </view>
     <view class="hint">创建后默认只有你自己，牌友可通过微信卡片加入。</view>
   </view>
 
