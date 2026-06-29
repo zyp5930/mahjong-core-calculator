@@ -190,8 +190,9 @@ function canReadTable(table, openid) {
   return table.ownerOpenid === openid || (table.participantOpenids || []).includes(openid);
 }
 
-async function attachAvatarUrls(table, openid) {
-  if (!table || !canReadTable(table, openid)) return table;
+async function attachAvatarUrls(table, openid, options = {}) {
+  if (!table) return table;
+  if (!options.force && !canReadTable(table, openid)) return table;
   const players = table.players || [];
   const avatarFileIds = Array.from(new Set(players
     .map((player) => player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : ''))
@@ -347,7 +348,7 @@ async function createTable(event, openid) {
 }
 
 async function getTable(tableId, openid) {
-  return attachAvatarUrls(await getTableById(tableId), openid);
+  return attachAvatarUrls(await getTableById(tableId), openid, { force: true });
 }
 
 async function getTableByShareCode(shareCode, openid) {
@@ -355,7 +356,7 @@ async function getTableByShareCode(shareCode, openid) {
     .where({ shareCode })
     .limit(1)
     .get();
-  return attachAvatarUrls(data[0] || null, openid);
+  return attachAvatarUrls(data[0] || null, openid, { force: true });
 }
 
 async function joinTable(event, openid) {

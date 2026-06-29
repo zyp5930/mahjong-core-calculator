@@ -84,6 +84,14 @@ Page({
       return;
     }
     this.setData({ tableId: table.id });
+    this.setData({
+      table,
+      players: table.players.map((player) => ({
+        ...player,
+        initial: player.name.slice(0, 1),
+        absScore: Math.abs(player.score)
+      }))
+    });
     this.loadTable();
   },
 
@@ -94,17 +102,9 @@ Page({
       return;
     }
     const myPlayer = store.findMyPlayer(table);
-    const currentPlayers = this.data.players || [];
     const players = table.players.map((player) => {
-      const currentPlayer = currentPlayers.find((item) => item.id === player.id);
-      const avatarUrl = currentPlayer &&
-        currentPlayer.avatarFileId === player.avatarFileId &&
-        currentPlayer.avatarUrl
-        ? currentPlayer.avatarUrl
-        : player.avatarUrl;
       return {
         ...player,
-        avatarUrl,
         initial: player.name.slice(0, 1),
         absScore: Math.abs(player.score)
       };
