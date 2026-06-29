@@ -1,6 +1,6 @@
 <view class="room-page">
   <view class="toolbar">
-    <button class="tool" open-type="share">
+    <button class="tool" bindtap="openInvite">
       <text class="tool-icon">邀</text>
       <text>邀请</text>
     </button>
@@ -23,14 +23,15 @@
   </view>
 
   <view class="join-tip" wx:if="{{table && !myPlayer}}">
-    <text>请选择你的玩家身份后开始计分</text>
-    <button bindtap="openJoin">绑定身份</button>
+    <text>加入牌局后开始计分</text>
+    <button bindtap="openJoin">加入</button>
   </view>
 
   <view class="players">
     <view class="player-card card" wx:for="{{players}}" wx:key="id">
       <view class="avatar-wrap">
-        <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
+        <image wx:if="{{item.avatarUrl}}" class="avatar image-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+        <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
         <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
       </view>
       <view class="player-main">
@@ -49,6 +50,19 @@
   </view>
 
   <view class="ended-mask" wx:if="{{table.status === 'ended'}}">牌局已结束，仅可查看</view>
+
+  <view class="sheet-mask" wx:if="{{inviteVisible}}" bindtap="closeInvite"></view>
+  <view class="invite-sheet" wx:if="{{inviteVisible}}">
+    <view class="invite-title">扫码加入牌局</view>
+    <view class="invite-subtitle">微信扫码后可直接进入 {{table.name}}</view>
+    <view class="invite-code-wrap">
+      <view wx:if="{{inviteLoading}}" class="invite-placeholder">正在生成二维码...</view>
+      <image wx:elif="{{inviteCodeImage}}" class="invite-code" src="{{inviteCodeImage}}" mode="aspectFit"></image>
+      <view wx:else class="invite-placeholder">暂时无法生成二维码</view>
+    </view>
+    <view class="invite-share-code">分享码：{{table.shareCode}}</view>
+    <button class="primary-btn invite-close" bindtap="closeInvite">完成</button>
+  </view>
 
   <view class="sheet-mask" wx:if="{{keypadVisible}}" bindtap="closeKeypad"></view>
   <view class="score-sheet" wx:if="{{keypadVisible}}">

@@ -4,12 +4,7 @@
       <text class="label">牌局名称</text>
       <input value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
     </view>
-    <view class="field">
-      <text class="label">玩家</text>
-      <view class="player-inputs">
-        <input wx:for="{{playerNames}}" wx:key="index" data-index="{{index}}" value="{{item}}" bindinput="onPlayerInput" placeholder="玩家昵称" />
-      </view>
-    </view>
+    <view class="hint">创建后默认只有你自己，牌友可通过微信卡片加入。</view>
   </view>
 
   <button class="primary-btn submit" bindtap="createTable">创建并进入牌局</button>

@@ -6,7 +6,9 @@ Page({
     table: {},
     players: [],
     selectedId: '',
-    name: ''
+    name: '微信用户',
+    avatarUrl: '',
+    myPlayer: null
   },
 
   onLoad(options) {
@@ -23,7 +25,16 @@ Page({
     await store.ensureMe();
     const myPlayer = store.findMyPlayer(table);
     if (myPlayer) {
-      wx.redirectTo({ url: `/pages/room/room?id=${table.id}` });
+      this.setData({
+        table,
+        players: table.players.map((player) => ({
+          ...player,
+          initial: player.name.slice(0, 1)
+        })),
+        myPlayer,
+        name: myPlayer.name || '',
+        avatarUrl: myPlayer.avatarUrl || ''
+      });
       return;
     }
     this.setData({
@@ -31,7 +42,10 @@ Page({
       players: table.players.map((player) => ({
         ...player,
         initial: player.name.slice(0, 1)
-      }))
+      })),
+      myPlayer: null,
+      selectedId: '',
+      avatarUrl: ''
     });
   },
 
@@ -52,18 +66,36 @@ Page({
     this.setData({ name: event.detail.value });
   },
 
+  onChooseAvatar(event) {
+    this.setData({
+      avatarUrl: event.detail.avatarUrl || ''
+    });
+  },
+
   async bindPlayer() {
-    if (!this.data.selectedId) {
-      wx.showToast({ title: '请选择玩家身份', icon: 'none' });
+    if (!this.data.name.trim()) {
+      wx.showToast({ title: '请输入昵称', icon: 'none' });
       return;
     }
     try {
-      await store.joinTable(this.data.tableId, this.data.selectedId, this.data.name);
+      if (this.data.myPlayer) {
+        await store.updateMyProfile(this.data.tableId, {
+          name: this.data.name,
+          avatarUrl: this.data.avatarUrl
+        });
+      } else {
+        await store.joinTable(
+          this.data.tableId,
+          this.data.selectedId,
+          this.data.name,
+          this.data.avatarUrl
+        );
+      }
       wx.redirectTo({
         url: `/pages/room/room?id=${this.data.tableId}`
       });
     } catch (error) {
-      wx.showToast({ title: error.message || '绑定失败', icon: 'none' });
+      wx.showToast({ title: error.message || '保存失败', icon: 'none' });
     }
   }
 });

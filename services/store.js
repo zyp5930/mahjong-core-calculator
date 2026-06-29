@@ -39,6 +39,7 @@ function normalizePlayer(name, index, isOwner) {
     id: makeId('player'),
     openid: isOwner ? getLocalOpenid() : '',
     name: trimmed,
+    avatarUrl: '',
     score: 0,
     isOwner: !!isOwner,
     avatarColor: avatarColors[index % avatarColors.length],
@@ -111,6 +112,14 @@ async function callTableOp(action, data) {
   return result.data;
 }
 
+async function getTableCode(shareCode) {
+  const { result } = await wx.cloud.callFunction({
+    name: 'tableCode',
+    data: { shareCode }
+  });
+  return result && result.buffer ? `data:image/png;base64,${result.buffer}` : '';
+}
+
 function normalizeCloudTable(table) {
   if (!table) return null;
   const id = table._id || table.id;
@@ -164,7 +173,7 @@ async function createTableLocal(payload) {
   return clone(table);
 }
 
-async function joinTableLocal(tableId, playerId, name) {
+async function joinTableLocal(tableId, playerId, name, avatarUrl) {
   const tables = readTables();
   const index = getTableIndex(tables, tableId);
   if (index < 0) throw new Error('牌局不存在');
@@ -173,12 +182,35 @@ async function joinTableLocal(tableId, playerId, name) {
   const existing = table.players.find((player) => player.openid === openid);
   if (existing) return clone(existing);
 
-  const player = table.players.find((item) => item.id === playerId);
-  if (!player) throw new Error('玩家不存在');
-  if (player.openid) throw new Error('该玩家已被绑定');
+  let player = table.players.find((item) => item.id === playerId);
+  if (!player && playerId) throw new Error('玩家不存在');
+  if (player && player.openid) throw new Error('该玩家已被绑定');
+  if (!player) {
+    player = normalizePlayer(name, table.players.length, false);
+    table.players.push(player);
+  }
   player.openid = openid;
   player.name = String(name || player.name).trim() || player.name;
+  player.avatarUrl = avatarUrl || player.avatarUrl || '';
   player.joinedAt = Date.now();
+  writeTables(tables);
+  return clone(player);
+}
+
+async function updateMyProfileLocal(tableId, payload) {
+  const tables = readTables();
+  const index = getTableIndex(tables, tableId);
+  if (index < 0) throw new Error('牌局不存在');
+  const table = tables[index];
+  const player = table.players.find((item) => item.openid === getLocalOpenid());
+  if (!player) throw new Error('请先加入牌局');
+
+  const name = String((payload && payload.name) || '').trim();
+  if (!name) throw new Error('请输入昵称');
+  player.name = name;
+  if (payload && payload.avatarUrl !== undefined) {
+    player.avatarUrl = payload.avatarUrl || '';
+  }
   writeTables(tables);
   return clone(player);
 }
@@ -310,10 +342,17 @@ async function createTable(payload) {
   );
 }
 
-async function joinTable(tableId, playerId, name) {
+async function joinTable(tableId, playerId, name, avatarUrl) {
   return withCloudFallback(
-    () => callTableOp('joinTable', { tableId, playerId, name }),
-    () => joinTableLocal(tableId, playerId, name)
+    () => callTableOp('joinTable', { tableId, playerId, name, avatarUrl }),
+    () => joinTableLocal(tableId, playerId, name, avatarUrl)
+  );
+}
+
+async function updateMyProfile(tableId, payload) {
+  return withCloudFallback(
+    () => callTableOp('updateMyProfile', { tableId, ...payload }),
+    () => updateMyProfileLocal(tableId, payload)
   );
 }
 
@@ -358,6 +397,7 @@ module.exports = {
   getTableByShareCode,
   createTable,
   joinTable,
+  updateMyProfile,
   giveScore,
   undoLastGive,
   toggleMuted,
@@ -367,5 +407,6 @@ module.exports = {
   sortPlayers,
   getLocalOpenid,
   ensureMe,
-  getStoredMode
+  getStoredMode,
+  getTableCode
 };

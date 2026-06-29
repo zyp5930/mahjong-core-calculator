@@ -62,6 +62,52 @@
   padding: 24rpx;
 }
 
+.avatar-card {
+  margin-top: 24rpx;
+  padding: 24rpx;
+}
+
+.avatar-card text {
+  display: block;
+  margin-bottom: 18rpx;
+  color: #626970;
+  font-size: 28rpx;
+}
+
+.avatar-picker {
+  height: 120rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid #dfe3e6;
+  border-radius: 8rpx;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  justify-content: flex-start;
+}
+
+.avatar-preview,
+.avatar-fallback {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 12rpx;
+  flex: 0 0 auto;
+}
+
+.avatar-fallback {
+  background: #6b9fe8;
+  color: #ffffff;
+  font-size: 34rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-copy {
+  color: #303438;
+  font-size: 30rpx;
+}
+
 .name-card text {
   display: block;
   margin-bottom: 14rpx;

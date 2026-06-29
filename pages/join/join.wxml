@@ -1,10 +1,10 @@
 <view class="page join-page">
   <view class="card intro">
     <view class="title">{{table.name}}</view>
-    <view class="muted">选择你的玩家身份。绑定后，你可以在牌局里给其他玩家计分。</view>
+    <view class="muted">{{myPlayer ? '修改你的昵称和头像。' : '输入你的牌桌昵称，加入后就可以给其他玩家计分。'}}</view>
   </view>
 
-  <view class="player-list">
+  <view class="player-list" wx:if="{{players.length > 1}}">
     <view class="player-card card {{item.openid ? 'disabled' : ''}}" wx:for="{{players}}" wx:key="id" bindtap="selectPlayer" data-id="{{item.id}}">
       <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
       <view class="player-info">
@@ -15,10 +15,24 @@
     </view>
   </view>
 
-  <view class="card name-card">
-    <text>我的昵称</text>
-    <input value="{{name}}" bindinput="onNameInput" placeholder="输入你的牌桌昵称" />
+  <view class="card avatar-card">
+    <text>微信头像</text>
+    <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <image wx:if="{{avatarUrl}}" class="avatar-preview" src="{{avatarUrl}}" mode="aspectFill"></image>
+      <view wx:else class="avatar-fallback">{{name.slice(0, 1) || '微'}}</view>
+      <view class="avatar-copy">{{avatarUrl ? '重新选择头像' : '选择微信头像'}}</view>
+    </button>
   </view>
 
-  <button class="primary-btn bind-btn" bindtap="bindPlayer">确认绑定</button>
+  <view class="card name-card">
+    <text>我的昵称</text>
+    <input
+      type="nickname"
+      value="{{name}}"
+      bindinput="onNameInput"
+      placeholder="输入你的牌桌昵称"
+    />
+  </view>
+
+  <button class="primary-btn bind-btn" bindtap="bindPlayer">{{myPlayer ? '保存资料' : '加入牌局'}}</button>
 </view>

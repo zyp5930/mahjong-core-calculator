@@ -30,6 +30,7 @@ function normalizePlayer(name, index, openid, isOwner) {
     id: makeId('player'),
     openid: isOwner ? openid : '',
     name: trimmed,
+    avatarUrl: '',
     score: 0,
     isOwner: !!isOwner,
     avatarColor: avatarColors[index % avatarColors.length],
@@ -97,14 +98,35 @@ async function joinTable(event, openid) {
   const existing = table.players.find((player) => player.openid === openid);
   if (existing) return existing;
 
-  const player = table.players.find((item) => item.id === event.playerId);
-  if (!player) throw new Error('玩家不存在');
-  if (player.openid) throw new Error('该玩家已被绑定');
+  let player = table.players.find((item) => item.id === event.playerId);
+  if (!player && event.playerId) throw new Error('玩家不存在');
+  if (player && player.openid) throw new Error('该玩家已被绑定');
+  if (!player) {
+    player = normalizePlayer(event.name, table.players.length, openid, false);
+    table.players.push(player);
+  }
 
   player.openid = openid;
   player.name = String(event.name || player.name).trim() || player.name;
+  player.avatarUrl = event.avatarUrl || player.avatarUrl || '';
   player.joinedAt = Date.now();
   table.participantOpenids = Array.from(new Set([...(table.participantOpenids || []), openid]));
+  await updateTable(event.tableId, table);
+  return player;
+}
+
+async function updateMyProfile(event, openid) {
+  const table = await getTableById(event.tableId);
+  if (!table) throw new Error('牌局不存在');
+  const player = table.players.find((item) => item.openid === openid);
+  if (!player) throw new Error('请先加入牌局');
+
+  const name = String(event.name || '').trim();
+  if (!name) throw new Error('请输入昵称');
+  player.name = name;
+  if (event.avatarUrl !== undefined) {
+    player.avatarUrl = event.avatarUrl || '';
+  }
   await updateTable(event.tableId, table);
   return player;
 }
@@ -202,6 +224,8 @@ exports.main = async (event) => {
         return ok(await getTableByShareCode(event.shareCode));
       case 'joinTable':
         return ok(await joinTable(event, OPENID));
+      case 'updateMyProfile':
+        return ok(await updateMyProfile(event, OPENID));
       case 'giveScore':
         return ok(await giveScore(event, OPENID));
       case 'undoLastGive':

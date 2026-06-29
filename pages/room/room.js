@@ -11,23 +11,29 @@ Page({
     targetPlayer: null,
     inputValue: '',
     keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '取消', '0', '确认'],
-    mode: 'unknown'
+    mode: 'unknown',
+    inviteVisible: false,
+    inviteCodeImage: '',
+    inviteLoading: false,
+    pendingAutoInvite: false
   },
 
   async onLoad(options) {
     await store.ensureMe();
     this.setData({
-      mode: store.getStoredMode()
+      mode: store.getStoredMode(),
+      pendingAutoInvite: options.autoInvite === '1'
     });
     const tableId = options.id || '';
-    const shareCode = options.shareCode || '';
+    const shareCode = options.shareCode || options.scene || '';
     if (tableId) {
       this.setData({ tableId });
       this.loadTable();
       return;
     }
     if (shareCode) {
-      this.resolveShareCode(shareCode);
+      const parsedShareCode = decodeURIComponent(shareCode).replace(/^shareCode=/, '');
+      this.resolveShareCode(parsedShareCode);
     }
   },
 
@@ -85,6 +91,10 @@ Page({
       canGive: !!myPlayer && table.status === 'active',
       mode: store.getStoredMode()
     });
+    if (this.data.pendingAutoInvite) {
+      this.setData({ pendingAutoInvite: false });
+      this.openInvite();
+    }
   },
 
   startPolling() {
@@ -107,6 +117,40 @@ Page({
     });
   },
 
+  async openInvite() {
+    if (!this.data.table || !this.data.table.shareCode) return;
+    if (store.getStoredMode() !== 'cloud') {
+      wx.showToast({
+        title: '请先配置云开发并部署二维码云函数',
+        icon: 'none'
+      });
+      return;
+    }
+    this.setData({
+      inviteVisible: true,
+      inviteLoading: true
+    });
+    try {
+      const inviteCodeImage = await store.getTableCode(this.data.table.shareCode);
+      this.setData({
+        inviteCodeImage,
+        inviteLoading: false
+      });
+    } catch (error) {
+      this.setData({ inviteLoading: false });
+      wx.showToast({
+        title: error.message || '二维码生成失败',
+        icon: 'none'
+      });
+    }
+  },
+
+  closeInvite() {
+    this.setData({
+      inviteVisible: false
+    });
+  },
+
   openDetail() {
     wx.navigateTo({
       url: `/pages/detail/detail?id=${this.data.tableId}`
@@ -126,7 +170,7 @@ Page({
 
   showMore() {
     wx.showActionSheet({
-      itemList: ['结束牌局', '复制分享码'],
+      itemList: ['结束牌局', '复制分享码', '编辑我的资料'],
       success: async (res) => {
         if (res.tapIndex === 0) {
           await store.endTable(this.data.tableId);
@@ -134,6 +178,9 @@ Page({
         }
         if (res.tapIndex === 1) {
           wx.setClipboardData({ data: this.data.table.shareCode });
+        }
+        if (res.tapIndex === 2) {
+          this.openJoin();
         }
       }
     });
