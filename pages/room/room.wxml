@@ -1,24 +1,16 @@
 <view class="room-page">
   <view class="toolbar">
-    <button class="tool" bindtap="openInvite">
+    <button class="tool invite-tool" bindtap="openInvite">
       <text class="tool-icon">邀</text>
       <text>邀请</text>
     </button>
-    <button class="tool" bindtap="openDetail">
+    <button class="tool detail-tool" bindtap="openDetail">
       <text class="tool-icon">明</text>
       <text>明细</text>
     </button>
-    <button class="tool" bindtap="goBack">
-      <text class="tool-icon">退</text>
-      <text>退出</text>
-    </button>
-    <button class="tool" bindtap="toggleMuted">
-      <text class="tool-icon">{{table.muted ? '关' : '开'}}</text>
-      <text>{{table.muted ? '已关' : '提示'}}</text>
-    </button>
-    <button class="tool" bindtap="showMore">
-      <text class="tool-icon">•••</text>
-      <text>更多</text>
+    <button class="tool end-tool" bindtap="openSettlementDialog" wx:if="{{table && table.status === 'active' && myPlayer && table.ownerOpenid === myPlayer.openid}}">
+      <text class="tool-icon">终</text>
+      <text>结束</text>
     </button>
   </view>
 
@@ -83,5 +75,31 @@
     <view class="keypad">
       <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" class="{{item === '确认' ? 'confirm' : ''}}">{{item}}</button>
     </view>
+  </view>
+
+  <view class="sheet-mask" wx:if="{{settlementVisible}}" bindtap="closeSettlement"></view>
+  <view class="settlement-sheet" wx:if="{{settlementVisible}}">
+    <view class="settlement-title">结束牌局</view>
+    <view class="settlement-subtitle">请输入倍率后结算最终积分</view>
+    <view class="settlement-input-row">
+      <input type="digit" value="{{endInputValue}}" bindinput="onEndInput" placeholder="例如 0.3" />
+    </view>
+    <view class="settlement-actions">
+      <button bindtap="closeSettlement">取消</button>
+      <button class="confirm" bindtap="confirmEndTable">结算</button>
+    </view>
+  </view>
+
+  <view class="settlement-panel" wx:if="{{table && table.status === 'ended' && finalScores.length}}">
+    <view class="settlement-panel-title">结算结果</view>
+    <view class="settlement-panel-meta">倍率：{{settlementMultiplier}}x</view>
+    <view class="settlement-row" wx:for="{{finalScores}}" wx:key="playerId">
+      <text>{{item.name}}</text>
+      <text>{{item.rawScore}} × {{settlementMultiplier}} = {{item.finalScore}}</text>
+    </view>
+  </view>
+
+  <view class="bottom-actions">
+    <button class="refresh-btn" bindtap="refreshTable">刷新当前页面</button>
   </view>
 </view>

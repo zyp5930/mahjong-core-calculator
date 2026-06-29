@@ -5,22 +5,23 @@
 }
 
 .toolbar {
-  height: 150rpx;
-  padding: 18rpx 24rpx 12rpx;
+  min-height: 136rpx;
+  padding: 20rpx 42rpx 16rpx;
   background: #ffffff;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   border-bottom: 1rpx solid #e7eaed;
 }
 
 .tool {
-  width: 100%;
-  height: 100%;
+  width: 120rpx;
+  min-height: 100rpx;
   margin: 0;
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: #676d74;
+  color: #59616a;
   font-size: 26rpx;
   line-height: 1.2;
   display: flex;
@@ -28,6 +29,7 @@
   align-items: center;
   justify-content: center;
   gap: 10rpx;
+  min-width: 0;
 }
 
 .tool::after {
@@ -41,6 +43,40 @@
   font-size: 34rpx;
   line-height: 56rpx;
   text-align: center;
+  font-weight: 700;
+}
+
+.tool text:last-child {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-weight: 600;
+}
+
+.invite-tool {
+  color: #2f8f5b;
+}
+
+.invite-tool .tool-icon {
+  color: #39b879;
+}
+
+.detail-tool {
+  color: #456f9d;
+}
+
+.detail-tool .tool-icon {
+  color: #6b9fe8;
+}
+
+.end-tool {
+  color: #c94d3f;
+}
+
+.end-tool .tool-icon {
+  color: #f15d4f;
 }
 
 .join-tip {
@@ -314,6 +350,107 @@
   border-radius: 18rpx 18rpx 0 0;
   background: #eef1f3;
   overflow: hidden;
+}
+
+.settlement-sheet {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 11;
+  padding: 34rpx 30rpx;
+  border-radius: 16rpx;
+  background: #ffffff;
+}
+
+.settlement-title {
+  color: #303438;
+  font-size: 36rpx;
+  text-align: center;
+}
+
+.settlement-subtitle {
+  margin-top: 14rpx;
+  color: #7b838b;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.settlement-input-row {
+  margin-top: 26rpx;
+  border: 1rpx solid #d7dadd;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.settlement-input-row input {
+  width: 100%;
+  height: 88rpx;
+  padding: 0 24rpx;
+  font-size: 34rpx;
+  box-sizing: border-box;
+}
+
+.settlement-actions {
+  margin-top: 26rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.settlement-actions button {
+  flex: 1;
+  height: 82rpx;
+  border-radius: 8rpx;
+  font-size: 30rpx;
+  line-height: 82rpx;
+}
+
+.settlement-actions .confirm {
+  background: #39b879;
+  color: #ffffff;
+}
+
+.settlement-panel {
+  margin: 24rpx;
+  padding: 24rpx 26rpx;
+  border-radius: 8rpx;
+  background: #ffffff;
+}
+
+.settlement-panel-title {
+  color: #303438;
+  font-size: 32rpx;
+}
+
+.settlement-panel-meta {
+  margin-top: 8rpx;
+  color: #8d949c;
+  font-size: 24rpx;
+}
+
+.settlement-row {
+  margin-top: 18rpx;
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  color: #60666d;
+  font-size: 26rpx;
+}
+
+.bottom-actions {
+  padding: 40rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.refresh-btn {
+  width: 100%;
+  height: 88rpx;
+  border: 1rpx solid #d7dadd;
+  border-radius: 8rpx;
+  background: #ffffff;
+  color: #60666d;
+  font-size: 30rpx;
+  line-height: 88rpx;
 }
 
 .sheet-player {

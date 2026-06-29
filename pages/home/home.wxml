@@ -13,10 +13,6 @@
       <view class="mode-title">多人计分桌</view>
       <view class="mode-desc">牌友扫码进入，自己操作计分</view>
     </navigator>
-    <navigator class="mode-card card" url="/pages/create/create?single=1">
-      <view class="mode-title">单人计分桌</view>
-      <view class="mode-desc">只由你一个人操作计分</view>
-    </navigator>
   </view>
 
   <view class="section-title recent-title">最近牌局</view>

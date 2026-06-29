@@ -242,6 +242,9 @@ async function updateTable(tableId, table) {
   }));
   const records = (table.records || []).map((record) => ({
     id: record.id || makeId('record'),
+    type: record.type || 'score',
+    multiplier: Number(record.multiplier) || 0,
+    finalScores: record.finalScores || [],
     fromPlayerId: record.fromPlayerId || '',
     fromPlayerName: record.fromPlayerName || '',
     toPlayerId: record.toPlayerId || '',
@@ -263,6 +266,7 @@ async function updateTable(tableId, table) {
     muted: !!table.muted,
     participantOpenids: table.participantOpenids || [],
     players,
+    settlement: table.settlement || null,
     records,
     notifications: (table.notifications || []).map((item) => ({
       id: item.id || makeId('notice'),
@@ -335,7 +339,8 @@ async function createTable(event, openid) {
     participantOpenids: [openid],
     players,
     records: [],
-    notifications: []
+    notifications: [],
+    settlement: null
   };
   const result = await db.collection('tables').add({ data: table });
   return attachAvatarUrls(await getTableById(result._id), openid);
@@ -493,8 +498,42 @@ async function endTable(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) throw new Error('牌局不存在');
   if (table.ownerOpenid !== openid) throw new Error('只有桌主可以结束牌局');
+  if (table.status !== 'active') throw new Error('牌局已结束');
+  const multiplier = Number(event.multiplier);
+  if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
+  const settledAt = Date.now();
+  const settlement = {
+    multiplier,
+    settledAt,
+    finalScores: (table.players || []).map((player) => {
+      const rawScore = Number(player.score) || 0;
+      return {
+        playerId: player.id,
+        name: player.name,
+        rawScore,
+        finalScore: rawScore * multiplier
+      };
+    })
+  };
   table.status = 'ended';
-  table.endedAt = Date.now();
+  table.endedAt = settledAt;
+  table.players = (table.players || []).map((player) => {
+    const finalScore = settlement.finalScores.find((item) => item.playerId === player.id);
+    return {
+      ...player,
+      score: finalScore ? finalScore.finalScore : Number(player.score) || 0
+    };
+  });
+  table.records = table.records || [];
+  table.records.unshift({
+    id: makeId('record'),
+    type: 'settlement',
+    multiplier,
+    finalScores: settlement.finalScores,
+    createdAt: settledAt,
+    revoked: false
+  });
+  table.settlement = settlement;
   return updateTable(event.tableId, table);
 }
 

@@ -294,6 +294,7 @@ async function normalizeCloudTable(table) {
     ...table,
     id,
     players,
+    settlement: table.settlement || null,
     records: (table.records || []).map((record, index) => ({
       ...record,
       id: record.id || `${id}_record_${index}`
@@ -339,7 +340,8 @@ async function createTableLocal(payload) {
     muted: false,
     players,
     records: [],
-    notifications: []
+    notifications: [],
+    settlement: null
   };
   const tables = readTables();
   tables.unshift(table);
@@ -479,14 +481,60 @@ async function toggleMutedLocal(tableId) {
   return clone(tables[index]);
 }
 
-async function endTableLocal(tableId) {
+function buildSettlement(table, multiplier) {
+  const settledAt = Date.now();
+  return {
+    multiplier,
+    settledAt,
+    finalScores: (table.players || []).map((player) => {
+      const rawScore = Number(player.score) || 0;
+      const finalScore = rawScore * multiplier;
+      return {
+        playerId: player.id,
+        name: player.name,
+        rawScore,
+        finalScore
+      };
+    })
+  };
+}
+
+function applySettlement(table, multiplier) {
+  const settlement = buildSettlement(table, multiplier);
+  table.players = (table.players || []).map((player) => {
+    const finalScore = settlement.finalScores.find((item) => item.playerId === player.id);
+    return {
+      ...player,
+      score: finalScore ? finalScore.finalScore : Number(player.score) || 0
+    };
+  });
+  table.records = table.records || [];
+  table.records.unshift({
+    id: makeId('record'),
+    type: 'settlement',
+    multiplier,
+    finalScores: settlement.finalScores,
+    createdAt: settlement.settledAt,
+    revoked: false
+  });
+  table.settlement = settlement;
+}
+
+async function endTableLocal(tableId, multiplier) {
   const tables = readTables();
   const index = getTableIndex(tables, tableId);
   if (index < 0) throw new Error('牌局不存在');
-  tables[index].status = 'ended';
-  tables[index].endedAt = Date.now();
+  const table = tables[index];
+  const ownerOpenid = getLocalOpenid();
+  if (table.ownerOpenid !== ownerOpenid) throw new Error('只有桌主可以结束牌局');
+  if (table.status !== 'active') throw new Error('牌局已结束');
+  const value = Number(multiplier);
+  if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
+  table.status = 'ended';
+  table.endedAt = Date.now();
+  applySettlement(table, value);
   writeTables(tables);
-  return clone(tables[index]);
+  return clone(table);
 }
 
 async function deleteTableLocal(tableId) {
@@ -604,10 +652,10 @@ async function toggleMuted(tableId) {
   );
 }
 
-async function endTable(tableId) {
+async function endTable(tableId, multiplier) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('endTable', { tableId })),
-    () => endTableLocal(tableId)
+    async () => normalizeCloudTable(await callTableOp('endTable', { tableId, multiplier })),
+    () => endTableLocal(tableId, multiplier)
   );
 }
 

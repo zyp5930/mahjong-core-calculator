@@ -8,7 +8,7 @@
     "pages/profile/profile"
   ],
   "window": {
-    "navigationBarTitleText": "麻将计分神器",
+    "navigationBarTitleText": "戒麻么",
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#eef1f3"

@@ -70,6 +70,13 @@
   font-weight: 700;
 }
 
+.settlement-detail {
+  display: block;
+  margin-top: 10rpx;
+  color: #60666d;
+  font-size: 26rpx;
+}
+
 .revoked {
   margin-left: 14rpx;
   color: #8d949c;

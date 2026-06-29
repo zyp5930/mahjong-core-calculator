@@ -8,9 +8,11 @@ Page({
     myPlayer: null,
     canGive: false,
     keypadVisible: false,
+    settlementVisible: false,
     targetPlayer: null,
     inputValue: '',
     keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '取消', '0', '确认'],
+    endInputValue: '',
     mode: 'unknown',
     inviteVisible: false,
     inviteCodeImage: '',
@@ -21,7 +23,10 @@ Page({
     noticeTimer: null,
     notices: [],
     noticeVisible: false,
-    noticeText: ''
+    noticeText: '',
+    settlementPlayers: [],
+    settlementMultiplier: '',
+    finalScores: []
   },
 
   async onLoad(options) {
@@ -89,17 +94,31 @@ Page({
       return;
     }
     const myPlayer = store.findMyPlayer(table);
-    const players = table.players.map((player) => ({
-      ...player,
-      initial: player.name.slice(0, 1),
-      absScore: Math.abs(player.score)
-    }));
+    const currentPlayers = this.data.players || [];
+    const players = table.players.map((player) => {
+      const currentPlayer = currentPlayers.find((item) => item.id === player.id);
+      const avatarUrl = currentPlayer &&
+        currentPlayer.avatarFileId === player.avatarFileId &&
+        currentPlayer.avatarUrl
+        ? currentPlayer.avatarUrl
+        : player.avatarUrl;
+      return {
+        ...player,
+        avatarUrl,
+        initial: player.name.slice(0, 1),
+        absScore: Math.abs(player.score)
+      };
+    });
+    const settlement = table.settlement || null;
     this.setData({
       table,
       players,
       myPlayer,
       canGive: !!myPlayer && table.status === 'active',
       mode: store.getStoredMode(),
+      settlementPlayers: settlement ? this.buildSettlementPlayers(settlement, table.players) : [],
+      settlementMultiplier: settlement ? settlement.multiplier : '',
+      finalScores: settlement ? settlement.finalScores || [] : [],
       notices: (table.notifications || []).filter((item) => !myPlayer || !item.targetOpenid || item.targetOpenid === myPlayer.openid)
     });
     this.showPendingNotice();
@@ -221,6 +240,8 @@ Page({
     this.setData({
       inviteVisible: false
     });
+    this.loadTable();
+    wx.showToast({ title: '已刷新', icon: 'none' });
   },
 
   openDetail() {
@@ -240,21 +261,72 @@ Page({
     this.loadTable();
   },
 
+  async refreshTable() {
+    await this.loadTable();
+    wx.showToast({ title: '已刷新', icon: 'none' });
+  },
+
   showMore() {
     wx.showActionSheet({
-      itemList: ['结束牌局', '复制分享码', '编辑我的资料'],
+      itemList: ['复制分享码', '编辑我的资料'],
       success: async (res) => {
         if (res.tapIndex === 0) {
-          await store.endTable(this.data.tableId);
-          this.loadTable();
-        }
-        if (res.tapIndex === 1) {
           wx.setClipboardData({ data: this.data.table.shareCode });
         }
-        if (res.tapIndex === 2) {
+        if (res.tapIndex === 1) {
           this.openJoin();
         }
       }
+    });
+  },
+
+  openSettlementDialog() {
+    this.setData({
+      settlementVisible: true,
+      endInputValue: '0.3'
+    });
+  },
+
+  closeSettlement() {
+    this.setData({
+      settlementVisible: false,
+      endInputValue: ''
+    });
+  },
+
+  onEndInput(event) {
+    this.setData({
+      endInputValue: event.detail.value
+    });
+  },
+
+  async confirmEndTable() {
+    const multiplier = Number(String(this.data.endInputValue || '').trim());
+    if (!multiplier || multiplier <= 0) {
+      wx.showToast({ title: '请输入有效倍率', icon: 'none' });
+      return;
+    }
+    try {
+      await store.endTable(this.data.tableId, multiplier);
+      this.closeSettlement();
+      this.loadTable();
+    } catch (error) {
+      wx.showToast({ title: error.message || '结算失败', icon: 'none' });
+    }
+  },
+
+  buildSettlementPlayers(settlement, players) {
+    const scoreMap = (settlement.finalScores || []).reduce((map, item) => {
+      map[item.playerId] = item;
+      return map;
+    }, {});
+    return players.map((player) => {
+      const found = scoreMap[player.id] || {};
+      return {
+        ...player,
+        rawScore: found.rawScore ?? player.score,
+        finalScore: found.finalScore ?? player.score
+      };
     });
   },
 

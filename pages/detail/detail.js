@@ -6,7 +6,8 @@ Page({
     tableId: '',
     table: {},
     players: [],
-    records: []
+    records: [],
+    settlement: null
   },
 
   onLoad(options) {
@@ -35,8 +36,10 @@ Page({
         statusText: table.status === 'active' ? '进行中' : '已结束'
       },
       players: store.sortPlayers(table.players),
+      settlement: table.settlement || null,
       records: table.records.map((record) => ({
         ...record,
+        isSettlement: record.type === 'settlement',
         timeText: formatTime(record.createdAt),
         statusText: record.revoked ? '已撤销' : ''
       }))
