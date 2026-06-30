@@ -1,5 +1,7 @@
 const store = require('../../services/store');
 
+const NOTICE_RECENT_WINDOW = 2 * 60 * 1000;
+
 Page({
   data: {
     tableId: '',
@@ -18,12 +20,12 @@ Page({
     inviteCodeImage: '',
     inviteLoading: false,
     pendingAutoInvite: false,
-    refreshTimer: null,
     tableWatcher: null,
-    noticeTimer: null,
+    noticeToastTimer: null,
     notices: [],
     noticeVisible: false,
     noticeText: '',
+    noticeTitle: '',
     settlementPlayers: [],
     settlementMultiplier: '',
     finalScores: []
@@ -48,21 +50,21 @@ Page({
     }
   },
 
-  onShow() {
+  async onShow() {
+    await store.ensureMe();
+    this.setData({ mode: store.getStoredMode() });
     if (this.data.tableId) this.loadTable();
-    this.startPolling();
     this.startWatching();
-    this.pullNotices();
   },
 
   onHide() {
-    this.stopPolling();
     this.stopWatching();
+    this.clearNoticeToastTimer();
   },
 
   onUnload() {
-    this.stopPolling();
     this.stopWatching();
+    this.clearNoticeToastTimer();
   },
 
   onPullDownRefresh() {
@@ -86,13 +88,10 @@ Page({
     this.setData({ tableId: table.id });
     this.setData({
       table,
-      players: table.players.map((player) => ({
-        ...player,
-        initial: player.name.slice(0, 1),
-        absScore: Math.abs(player.score)
-      }))
+      players: this.buildPlayers(table.players)
     });
     this.loadTable();
+    this.startWatching();
   },
 
   async loadTable() {
@@ -101,18 +100,20 @@ Page({
       wx.showToast({ title: '牌局不存在', icon: 'none' });
       return;
     }
+    this.applyTable(table);
+  },
+
+  applyTable(table) {
     const myPlayer = store.findMyPlayer(table);
-    const players = table.players.map((player) => {
-      return {
-        ...player,
-        initial: player.name.slice(0, 1),
-        absScore: Math.abs(player.score)
-      };
-    });
+    const players = this.buildPlayers(table.players);
+    const targetPlayer = this.data.targetPlayer
+      ? players.find((player) => player.id === this.data.targetPlayer.id) || this.data.targetPlayer
+      : null;
     const settlement = table.settlement || null;
     this.setData({
       table,
       players,
+      targetPlayer,
       myPlayer,
       canGive: !!myPlayer && table.status === 'active',
       mode: store.getStoredMode(),
@@ -128,18 +129,21 @@ Page({
     }
   },
 
-  startPolling() {
-    this.stopPolling();
-    if (!this.data.tableId || store.getStoredMode() !== 'cloud') return;
-    this.pollTimer = setInterval(() => {
-      this.loadTable();
-    }, 3000);
+  buildPlayers(players) {
+    return (players || []).map((player) => ({
+      ...player,
+      initial: String(player.name || '').slice(0, 1),
+      absScore: Math.abs(Number(player.score) || 0),
+      avatarDisplayUrl: this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId),
+      viewKey: `${player.id}_${player.avatarFileId || player.avatarUrl || 'avatar-empty'}`
+    }));
   },
 
-  stopPolling() {
-    if (!this.pollTimer) return;
-    clearInterval(this.pollTimer);
-    this.pollTimer = null;
+  buildAvatarDisplayUrl(avatarUrl, avatarFileId) {
+    if (!avatarUrl) return '';
+    const version = avatarFileId || avatarUrl;
+    const separator = avatarUrl.includes('?') ? '&' : '?';
+    return `${avatarUrl}${separator}v=${encodeURIComponent(version)}`;
   },
 
   startWatching() {
@@ -148,9 +152,11 @@ Page({
     try {
       const db = wx.cloud.database();
       this.tableWatcher = db.collection('tables').doc(this.data.tableId).watch({
-        onChange: () => {
-          this.loadTable();
-          this.pullNotices();
+        onChange: async (snapshot) => {
+          const rawTable = snapshot && snapshot.docs && snapshot.docs[0];
+          if (!rawTable) return;
+          const table = await store.normalizeTable(rawTable);
+          this.applyTable(table);
         },
         onError: () => {
           this.stopWatching();
@@ -168,36 +174,50 @@ Page({
     this.tableWatcher = null;
   },
 
-  pullNotices() {
-    this.stopNoticeTimer();
-    this.noticeTimer = setInterval(() => {
-      this.showPendingNotice();
-    }, 1000);
-  },
-
-  stopNoticeTimer() {
-    if (!this.noticeTimer) return;
-    clearInterval(this.noticeTimer);
-    this.noticeTimer = null;
-  },
-
   showPendingNotice() {
     const notices = this.data.notices || [];
-    const unread = notices.find((item) => !store.isNoticeSeen(this.data.tableId, item.id));
+    const now = Date.now();
+    const unread = notices.find((item) => (
+      now - (Number(item.createdAt) || 0) <= NOTICE_RECENT_WINDOW &&
+      !store.isNoticeSeen(this.data.tableId, item.id)
+    ));
     if (!unread) return;
     store.markNoticeSeen(this.data.tableId, unread.id);
+    this.clearNoticeToastTimer();
     this.setData({
       noticeVisible: true,
-      noticeText: `${unread.title}：${unread.content}`,
+      noticeTitle: unread.title || '消息提醒',
+      noticeText: this.formatNoticeText(unread),
       notices
     });
+    this.noticeToastTimer = setTimeout(() => {
+      this.closeNotice();
+    }, 3200);
+  },
+
+  formatNoticeText(notice) {
+    if (notice.type === 'score') {
+      return `收到 ${notice.fromPlayerName || '玩家'} 的 ${notice.amount} 分`;
+    }
+    if (notice.type === 'undo') {
+      return notice.content || `${notice.fromPlayerName || '玩家'} 撤销了 ${notice.amount} 分`;
+    }
+    return notice.content || notice.title || '有新的牌局消息';
   },
 
   closeNotice() {
+    this.clearNoticeToastTimer();
     this.setData({
       noticeVisible: false,
+      noticeTitle: '',
       noticeText: ''
     });
+  },
+
+  clearNoticeToastTimer() {
+    if (!this.noticeToastTimer) return;
+    clearTimeout(this.noticeToastTimer);
+    this.noticeToastTimer = null;
   },
 
   openJoin() {
@@ -391,14 +411,14 @@ Page({
       return;
     }
     try {
-      await store.giveScore(
+      const table = await store.giveScore(
         this.data.tableId,
         this.data.myPlayer.id,
         this.data.targetPlayer.id,
         amount
       );
       this.closeKeypad();
-      this.loadTable();
+      this.applyTable(table);
     } catch (error) {
       wx.showToast({ title: error.message || '计分失败', icon: 'none' });
     }

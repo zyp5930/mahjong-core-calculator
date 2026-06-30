@@ -279,6 +279,8 @@ async function updateTable(tableId, table) {
       tableId: item.tableId || table._id || table.id || '',
       fromPlayerId: item.fromPlayerId || '',
       toPlayerId: item.toPlayerId || '',
+      fromPlayerName: item.fromPlayerName || '',
+      toPlayerName: item.toPlayerName || '',
       amount: Number(item.amount) || 0,
       recordId: item.recordId || '',
       readBy: item.readBy || [],
@@ -443,6 +445,23 @@ async function giveScore(event, openid) {
     createdAt: Date.now(),
     revoked: false
   });
+  if (toPlayer.openid) {
+    table.notifications = table.notifications || [];
+    table.notifications.unshift(makeNotification(
+      'score',
+      toPlayer.openid,
+      '收到给分',
+      `收到 ${fromPlayer.name} 的 ${amount} 分`,
+      {
+        tableId: event.tableId,
+        fromPlayerId: fromPlayer.id,
+        toPlayerId: toPlayer.id,
+        amount,
+        fromPlayerName: fromPlayer.name,
+        toPlayerName: toPlayer.name
+      }
+    ));
+  }
   return updateTable(event.tableId, table);
 }
 

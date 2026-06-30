@@ -241,34 +241,44 @@
   font-size: 28rpx;
 }
 
-.notice-sheet {
+.notice-toast {
   position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 11;
-  padding: 34rpx 30rpx;
-  border-radius: 16rpx;
-  background: #ffffff;
+  left: 30rpx;
+  right: 30rpx;
+  top: 176rpx;
+  z-index: 12;
+  min-height: 54rpx;
+  padding: 0 12rpx 0 22rpx;
+  border-radius: 8rpx;
+  background: rgba(70, 70, 70, 0.82);
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
-.notice-title {
-  color: #303438;
-  font-size: 34rpx;
-  text-align: center;
-}
-
-.notice-text {
-  margin-top: 18rpx;
-  color: #60666d;
-  font-size: 28rpx;
-  line-height: 1.5;
-  text-align: center;
+.notice-toast .notice-text {
+  flex: 1;
+  min-width: 0;
+  color: #ffffff;
+  font-size: 30rpx;
+  line-height: 54rpx;
 }
 
 .notice-close {
-  margin-top: 28rpx;
+  width: 52rpx;
+  height: 52rpx;
+  margin: 0 0 0 12rpx;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 46rpx;
+  line-height: 48rpx;
+  text-align: center;
+}
+
+.notice-close::after {
+  border: 0;
 }
 
 .invite-sheet {

@@ -22,7 +22,7 @@
   <view class="players">
     <view class="player-card card" wx:for="{{players}}" wx:key="id">
       <view class="avatar-wrap">
-        <image wx:if="{{item.avatarUrl}}" class="avatar image-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
+        <image wx:if="{{item.avatarDisplayUrl}}" class="avatar image-avatar" src="{{item.avatarDisplayUrl}}" mode="aspectFill" data-avatar-key="{{item.viewKey}}"></image>
         <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
         <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
       </view>
@@ -43,11 +43,9 @@
 
   <view class="ended-mask" wx:if="{{table.status === 'ended'}}">牌局已结束，仅可查看</view>
 
-  <view class="sheet-mask" wx:if="{{noticeVisible}}" bindtap="closeNotice"></view>
-  <view class="notice-sheet" wx:if="{{noticeVisible}}">
-    <view class="notice-title">消息提醒</view>
-    <view class="notice-text">{{noticeText}}</view>
-    <button class="primary-btn notice-close" bindtap="closeNotice">知道了</button>
+  <view class="notice-toast" wx:if="{{noticeVisible}}">
+    <text class="notice-text">{{noticeText}}</text>
+    <button class="notice-close" bindtap="closeNotice">×</button>
   </view>
 
   <view class="sheet-mask" wx:if="{{inviteVisible}}" bindtap="closeInvite"></view>
@@ -66,7 +64,8 @@
   <view class="sheet-mask" wx:if="{{keypadVisible}}" bindtap="closeKeypad"></view>
   <view class="score-sheet" wx:if="{{keypadVisible}}">
     <view class="sheet-player">
-      <view class="sheet-avatar" style="background: {{targetPlayer.avatarColor}}">{{targetPlayer.initial}}</view>
+      <image wx:if="{{targetPlayer.avatarDisplayUrl}}" class="sheet-avatar image-avatar" src="{{targetPlayer.avatarDisplayUrl}}" mode="aspectFill" data-avatar-key="{{targetPlayer.viewKey}}"></image>
+      <view wx:else class="sheet-avatar" style="background: {{targetPlayer.avatarColor}}">{{targetPlayer.initial}}</view>
       <text>{{targetPlayer.name}}</text>
     </view>
     <view class="score-input-row">

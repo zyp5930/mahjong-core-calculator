@@ -5,6 +5,7 @@ const OPENID_KEY = 'mahjong_local_openid_v1';
 const MODE_KEY = 'mahjong_store_mode_v1';
 const NOTICE_SEEN_KEY = 'mahjong_notice_seen_v1';
 const CLOUD_TIMEOUT_MS = 6000;
+const AVATAR_URL_CACHE_TTL = 30 * 60 * 1000;
 
 const avatarColors = ['#6b9fe8', '#45b7a8', '#f16f5d', '#8a7ee8', '#d69a25', '#5f7285'];
 
@@ -174,14 +175,18 @@ async function resolveCloudAvatarUrl(avatarFileId, fallbackUrl) {
   if (!isCloudAvatarUrl(avatarFileId) || !wx.cloud || !wx.cloud.getTempFileURL) {
     return fallbackUrl || avatarFileId || '';
   }
-  if (avatarUrlCache[avatarFileId]) return avatarUrlCache[avatarFileId];
+  const cached = avatarUrlCache[avatarFileId];
+  if (cached && Date.now() - cached.createdAt < AVATAR_URL_CACHE_TTL) return cached.url;
   try {
     const result = await wx.cloud.getTempFileURL({
       fileList: [avatarFileId]
     });
     const file = result.fileList && result.fileList[0];
     if (file && file.tempFileURL) {
-      avatarUrlCache[avatarFileId] = file.tempFileURL;
+      avatarUrlCache[avatarFileId] = {
+        url: file.tempFileURL,
+        createdAt: Date.now()
+      };
       return file.tempFileURL;
     }
   } catch (error) {
@@ -276,7 +281,7 @@ async function getTableCode(shareCode) {
   return `data:image/png;base64,${result.buffer}`;
 }
 
-async function normalizeCloudTable(table) {
+async function normalizeTable(table) {
   if (!table) return null;
   const id = table._id || table.id;
   const players = await Promise.all((table.players || []).map(async (player, index) => {
@@ -423,6 +428,23 @@ async function giveScoreLocal(tableId, fromPlayerId, toPlayerId, amount) {
     createdAt: Date.now(),
     revoked: false
   });
+  if (toPlayer.openid) {
+    table.notifications = table.notifications || [];
+    table.notifications.unshift(makeNotification(
+      'score',
+      toPlayer.openid,
+      '收到给分',
+      `收到 ${fromPlayer.name} 的 ${value} 分`,
+      {
+        tableId,
+        fromPlayerId,
+        toPlayerId,
+        amount: value,
+        fromPlayerName: fromPlayer.name,
+        toPlayerName: toPlayer.name
+      }
+    ));
+  }
   writeTables(tables);
   return clone(table);
 }
@@ -575,7 +597,7 @@ async function listTables() {
   return withCloudFallback(
     async () => {
       const tables = await callTableOp('listTables', {});
-      return Promise.all(tables.map(normalizeCloudTable));
+      return Promise.all(tables.map(normalizeTable));
     },
     listTablesLocal
   );
@@ -583,14 +605,14 @@ async function listTables() {
 
 async function getTable(tableId) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('getTable', { tableId })),
+    async () => normalizeTable(await callTableOp('getTable', { tableId })),
     () => getTableLocal(tableId)
   );
 }
 
 async function getTableByShareCode(shareCode) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('getTableByShareCode', { shareCode })),
+    async () => normalizeTable(await callTableOp('getTableByShareCode', { shareCode })),
     () => getTableByShareCodeLocal(shareCode)
   );
 }
@@ -602,7 +624,7 @@ async function createTable(payload) {
       if (savedPayload.ownerAvatarUrl) {
         savedPayload.ownerAvatarUrl = await uploadCloudAvatar(savedPayload.ownerAvatarUrl);
       }
-      return normalizeCloudTable(await callTableOp('createTable', savedPayload));
+      return normalizeTable(await callTableOp('createTable', savedPayload));
     }
   );
 }
@@ -633,28 +655,28 @@ async function updateMyProfile(tableId, payload) {
 
 async function giveScore(tableId, fromPlayerId, toPlayerId, amount) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('giveScore', { tableId, fromPlayerId, toPlayerId, amount })),
+    async () => normalizeTable(await callTableOp('giveScore', { tableId, fromPlayerId, toPlayerId, amount })),
     () => giveScoreLocal(tableId, fromPlayerId, toPlayerId, amount)
   );
 }
 
 async function undoLastGive(tableId, fromPlayerId, toPlayerId) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('undoLastGive', { tableId, fromPlayerId, toPlayerId })),
+    async () => normalizeTable(await callTableOp('undoLastGive', { tableId, fromPlayerId, toPlayerId })),
     () => undoLastGiveLocal(tableId, fromPlayerId, toPlayerId)
   );
 }
 
 async function toggleMuted(tableId) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('toggleMuted', { tableId })),
+    async () => normalizeTable(await callTableOp('toggleMuted', { tableId })),
     () => toggleMutedLocal(tableId)
   );
 }
 
 async function endTable(tableId, multiplier) {
   return withCloudFallback(
-    async () => normalizeCloudTable(await callTableOp('endTable', { tableId, multiplier })),
+    async () => normalizeTable(await callTableOp('endTable', { tableId, multiplier })),
     () => endTableLocal(tableId, multiplier)
   );
 }
@@ -683,5 +705,8 @@ module.exports = {
   getLocalOpenid,
   ensureMe,
   getStoredMode,
-  getTableCode
+  getTableCode,
+  normalizeTable,
+  isNoticeSeen,
+  markNoticeSeen
 };
