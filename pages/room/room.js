@@ -21,17 +21,15 @@ Page({
     inviteLoading: false,
     pendingAutoInvite: false,
     tableWatcher: null,
-    noticeToastTimer: null,
     notices: [],
-    noticeVisible: false,
-    noticeText: '',
-    noticeTitle: '',
+    noticeToasts: [],
     settlementPlayers: [],
     settlementMultiplier: '',
     finalScores: []
   },
 
   async onLoad(options) {
+    this.noticeToastTimers = {};
     await store.ensureMe();
     this.setData({
       mode: store.getStoredMode(),
@@ -60,11 +58,13 @@ Page({
   onHide() {
     this.stopWatching();
     this.clearNoticeToastTimer();
+    this.setData({ noticeToasts: [] });
   },
 
   onUnload() {
     this.stopWatching();
     this.clearNoticeToastTimer();
+    this.setData({ noticeToasts: [] });
   },
 
   onPullDownRefresh() {
@@ -177,22 +177,28 @@ Page({
   showPendingNotice() {
     const notices = this.data.notices || [];
     const now = Date.now();
-    const unread = notices.find((item) => (
+    const unreadList = notices.filter((item) => (
       now - (Number(item.createdAt) || 0) <= NOTICE_RECENT_WINDOW &&
       !store.isNoticeSeen(this.data.tableId, item.id)
-    ));
-    if (!unread) return;
-    store.markNoticeSeen(this.data.tableId, unread.id);
-    this.clearNoticeToastTimer();
+    )).reverse();
+    if (!unreadList.length) return;
+    const toasts = unreadList.map((notice) => {
+      store.markNoticeSeen(this.data.tableId, notice.id);
+      return {
+        id: notice.id,
+        text: this.formatNoticeText(notice)
+      };
+    });
     this.setData({
-      noticeVisible: true,
-      noticeTitle: unread.title || '消息提醒',
-      noticeText: this.formatNoticeText(unread),
+      noticeToasts: [...this.data.noticeToasts, ...toasts],
       notices
     });
-    this.noticeToastTimer = setTimeout(() => {
-      this.closeNotice();
-    }, 3200);
+    toasts.forEach((toast) => {
+      this.clearNoticeToastTimer(toast.id);
+      this.noticeToastTimers[toast.id] = setTimeout(() => {
+        this.closeNotice({ currentTarget: { dataset: { id: toast.id } } });
+      }, 5000);
+    });
   },
 
   formatNoticeText(notice) {
@@ -205,19 +211,34 @@ Page({
     return notice.content || notice.title || '有新的牌局消息';
   },
 
-  closeNotice() {
+  closeNotice(event) {
+    const id = event && event.currentTarget && event.currentTarget.dataset.id;
+    if (id) {
+      this.clearNoticeToastTimer(id);
+      this.setData({
+        noticeToasts: this.data.noticeToasts.filter((item) => item.id !== id)
+      });
+      return;
+    }
     this.clearNoticeToastTimer();
     this.setData({
-      noticeVisible: false,
-      noticeTitle: '',
-      noticeText: ''
+      noticeToasts: []
     });
   },
 
-  clearNoticeToastTimer() {
-    if (!this.noticeToastTimer) return;
-    clearTimeout(this.noticeToastTimer);
-    this.noticeToastTimer = null;
+  clearNoticeToastTimer(id) {
+    this.noticeToastTimers = this.noticeToastTimers || {};
+    if (id) {
+      if (this.noticeToastTimers[id]) {
+        clearTimeout(this.noticeToastTimers[id]);
+        delete this.noticeToastTimers[id];
+      }
+      return;
+    }
+    Object.keys(this.noticeToastTimers || {}).forEach((timerId) => {
+      clearTimeout(this.noticeToastTimers[timerId]);
+    });
+    this.noticeToastTimers = {};
   },
 
   openJoin() {

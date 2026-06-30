@@ -43,9 +43,11 @@
 
   <view class="ended-mask" wx:if="{{table.status === 'ended'}}">牌局已结束，仅可查看</view>
 
-  <view class="notice-toast" wx:if="{{noticeVisible}}">
-    <text class="notice-text">{{noticeText}}</text>
-    <button class="notice-close" bindtap="closeNotice">×</button>
+  <view class="notice-stack" wx:if="{{noticeToasts.length}}">
+    <view class="notice-toast" wx:for="{{noticeToasts}}" wx:key="id">
+      <text class="notice-text">{{item.text}}</text>
+      <text class="notice-close" bindtap="closeNotice" data-id="{{item.id}}">×</text>
+    </view>
   </view>
 
   <view class="sheet-mask" wx:if="{{inviteVisible}}" bindtap="closeInvite"></view>

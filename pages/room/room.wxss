@@ -241,44 +241,53 @@
   font-size: 28rpx;
 }
 
-.notice-toast {
+.notice-stack {
   position: fixed;
-  left: 30rpx;
-  right: 30rpx;
-  top: 176rpx;
+  left: 32rpx;
+  top: 184rpx;
   z-index: 12;
-  min-height: 54rpx;
-  padding: 0 12rpx 0 22rpx;
-  border-radius: 8rpx;
-  background: rgba(70, 70, 70, 0.82);
+  max-width: calc(100vw - 64rpx);
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
+  pointer-events: none;
+}
+
+.notice-toast {
+  max-width: 100%;
+  min-height: 60rpx;
+  padding: 12rpx 18rpx 12rpx 24rpx;
+  border-radius: 12rpx;
+  background: rgba(48, 52, 56, 0.88);
+  box-shadow: 0 10rpx 28rpx rgba(20, 24, 28, 0.18);
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 14rpx;
   box-sizing: border-box;
+  pointer-events: auto;
 }
 
 .notice-toast .notice-text {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: calc(100vw - 150rpx);
   color: #ffffff;
   font-size: 30rpx;
-  line-height: 54rpx;
+  line-height: 1.35;
+  word-break: break-all;
 }
 
 .notice-close {
-  width: 52rpx;
-  height: 52rpx;
-  margin: 0 0 0 12rpx;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
+  min-width: 32rpx;
+  height: 40rpx;
+  margin: -2rpx 0 0;
   color: #ffffff;
-  font-size: 46rpx;
-  line-height: 48rpx;
+  font-size: 40rpx;
+  line-height: 40rpx;
   text-align: center;
-}
-
-.notice-close::after {
-  border: 0;
+  flex: 0 0 auto;
+  opacity: 0.92;
 }
 
 .invite-sheet {
