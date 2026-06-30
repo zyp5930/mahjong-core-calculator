@@ -71,7 +71,10 @@
       <text>{{targetPlayer.name}}</text>
     </view>
     <view class="score-input-row">
-      <view class="score-input">{{inputValue || '请输入分数'}}</view>
+      <view class="score-input {{inputValue ? '' : 'placeholder'}}">{{inputValue || '请输入分数'}}</view>
+      <view class="score-delete" catchtap="clearInput">
+        <text class="delete-icon">⌫</text>
+      </view>
     </view>
     <view class="keypad">
       <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" class="{{item === '确认' ? 'confirm' : ''}}">{{item}}</button>

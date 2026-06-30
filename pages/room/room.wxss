@@ -492,6 +492,7 @@
 }
 
 .score-input-row {
+  position: relative;
   height: 98rpx;
   margin-top: 30rpx;
   border: 1rpx solid #d7dadd;
@@ -501,14 +502,39 @@
 }
 
 .score-input {
-  padding: 0 30rpx;
+  padding: 0 106rpx 0 30rpx;
   color: #303438;
   font-size: 38rpx;
   line-height: 98rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.score-input:empty {
+.score-input.placeholder {
   color: #a2a8af;
+}
+
+.score-delete {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 98rpx;
+  height: 98rpx;
+  margin: 0;
+  padding: 0;
+  border-left: 1rpx solid #d7dadd;
+  border-radius: 0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-icon {
+  color: #707780;
+  font-size: 38rpx;
+  line-height: 1;
 }
 
 .keypad {

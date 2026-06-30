@@ -444,28 +444,77 @@ Page({
     });
   },
 
+  buildOptimisticGiveTable(table, fromPlayerId, toPlayerId, amount) {
+    if (!table) return null;
+    const value = Number(amount);
+    const players = (table.players || []).map((player) => ({ ...player }));
+    const fromPlayer = players.find((player) => player.id === fromPlayerId);
+    const toPlayer = players.find((player) => player.id === toPlayerId);
+    if (!fromPlayer || !toPlayer) return null;
+
+    fromPlayer.score = (Number(fromPlayer.score) || 0) - value;
+    toPlayer.score = (Number(toPlayer.score) || 0) + value;
+
+    return {
+      ...table,
+      players,
+      updatedAt: Date.now(),
+      records: [{
+        id: `optimistic_${Date.now()}_${toPlayerId}`,
+        fromPlayerId,
+        fromPlayerName: fromPlayer.name,
+        toPlayerId,
+        toPlayerName: toPlayer.name,
+        amount: value,
+        operatorOpenid: this.data.myPlayer && this.data.myPlayer.openid,
+        createdAt: Date.now(),
+        revoked: false
+      }, ...((table.records || []).map((record) => ({ ...record })))]
+    };
+  },
+
   async confirmGive() {
+    if (this.givingScore) return;
     const amount = Number(this.data.inputValue);
     if (!amount) {
       wx.showToast({ title: '请输入分数', icon: 'none' });
       return;
     }
+    const previousTable = this.data.table;
+    const targetPlayer = this.data.targetPlayer;
+    const myPlayer = this.data.myPlayer;
+    if (!targetPlayer || !myPlayer) {
+      wx.showToast({ title: '请先加入牌局', icon: 'none' });
+      return;
+    }
+    this.givingScore = true;
+    const optimisticTable = this.buildOptimisticGiveTable(
+      previousTable,
+      myPlayer.id,
+      targetPlayer.id,
+      amount
+    );
+    this.closeKeypad();
+    if (optimisticTable) this.applyTable(optimisticTable);
+    const toastId = `give_${Date.now()}_${targetPlayer.id}`;
+    this.appendNoticeToasts([{
+      id: toastId,
+      text: `已给 ${targetPlayer.name || '玩家'} ${amount} 分`
+    }]);
     try {
-      const targetPlayer = this.data.targetPlayer;
       const table = await store.giveScore(
         this.data.tableId,
-        this.data.myPlayer.id,
+        myPlayer.id,
         targetPlayer.id,
         amount
       );
-      this.closeKeypad();
       this.applyTable(table);
-      this.appendNoticeToasts([{
-        id: `give_${Date.now()}_${targetPlayer.id}`,
-        text: `已给 ${targetPlayer.name || '玩家'} ${amount} 分`
-      }]);
     } catch (error) {
+      if (previousTable) this.applyTable(previousTable);
+      this.closeNotice({ currentTarget: { dataset: { id: toastId } } });
       wx.showToast({ title: error.message || '计分失败', icon: 'none' });
+    } finally {
+      this.givingScore = false;
     }
   }
 });
