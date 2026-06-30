@@ -131,13 +131,23 @@ Page({
   },
 
   buildPlayers(players) {
-    return (players || []).map((player) => ({
-      ...player,
-      initial: String(player.name || '').slice(0, 1),
-      absScore: Math.abs(Number(player.score) || 0),
-      avatarDisplayUrl: this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId),
-      viewKey: `${player.id}_${player.avatarFileId || player.avatarUrl || 'avatar-empty'}`
-    }));
+    const playerList = players || [];
+    const scores = playerList.map((player) => Number(player.score) || 0);
+    const maxScore = scores.length ? Math.max(...scores) : 0;
+    const minScore = scores.length ? Math.min(...scores) : 0;
+    const hasWinnerAndLoser = playerList.length > 1 && maxScore !== minScore;
+
+    return playerList.map((player) => {
+      const score = Number(player.score) || 0;
+      return {
+        ...player,
+        initial: String(player.name || '').slice(0, 1),
+        absScore: Math.abs(score),
+        rankEmoji: hasWinnerAndLoser && score === maxScore ? '🐶' : (hasWinnerAndLoser && score === minScore ? '😭' : ''),
+        avatarDisplayUrl: this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId),
+        viewKey: `${player.id}_${player.avatarFileId || player.avatarUrl || 'avatar-empty'}`
+      };
+    });
   },
 
   buildAvatarDisplayUrl(avatarUrl, avatarFileId) {

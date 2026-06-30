@@ -24,6 +24,7 @@
       <view class="avatar-wrap">
         <image wx:if="{{item.avatarDisplayUrl}}" class="avatar image-avatar" src="{{item.avatarDisplayUrl}}" mode="aspectFill" data-avatar-key="{{item.viewKey}}"></image>
         <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
+        <view wx:if="{{item.rankEmoji}}" class="rank-emoji">{{item.rankEmoji}}</view>
         <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
       </view>
       <view class="player-main">

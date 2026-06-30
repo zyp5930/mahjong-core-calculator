@@ -150,16 +150,28 @@
 .owner-badge {
   position: absolute;
   left: 62rpx;
-  top: -16rpx;
+  bottom: -8rpx;
   min-width: 64rpx;
   height: 42rpx;
   padding: 0 10rpx;
-  border-radius: 20rpx 20rpx 20rpx 0;
+  border-radius: 0 20rpx 20rpx 20rpx;
   background: #f15d4f;
   color: #ffffff;
   font-size: 22rpx;
   line-height: 42rpx;
   text-align: center;
+}
+
+.rank-emoji {
+  position: absolute;
+  right: 0;
+  top: -24rpx;
+  width: 58rpx;
+  height: 58rpx;
+  font-size: 46rpx;
+  line-height: 58rpx;
+  text-align: center;
+  text-shadow: 0 2rpx 6rpx rgba(47, 51, 55, 0.24);
 }
 
 .player-main {
