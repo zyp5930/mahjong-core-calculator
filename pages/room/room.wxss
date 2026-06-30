@@ -259,8 +259,8 @@
   min-height: 60rpx;
   padding: 12rpx 18rpx 12rpx 24rpx;
   border-radius: 12rpx;
-  background: rgba(48, 52, 56, 0.88);
-  box-shadow: 0 10rpx 28rpx rgba(20, 24, 28, 0.18);
+  background: rgba(190, 196, 204, 0.8);
+  box-shadow: 0 8rpx 24rpx rgba(20, 24, 28, 0.12);
   display: inline-flex;
   align-items: flex-start;
   gap: 14rpx;
@@ -272,8 +272,9 @@
   flex: 0 1 auto;
   min-width: 0;
   max-width: calc(100vw - 150rpx);
-  color: #ffffff;
+  color: #3f454d;
   font-size: 30rpx;
+  font-weight: 600;
   line-height: 1.35;
   word-break: break-all;
 }
@@ -282,7 +283,7 @@
   min-width: 32rpx;
   height: 40rpx;
   margin: -2rpx 0 0;
-  color: #ffffff;
+  color: #60656d;
   font-size: 40rpx;
   line-height: 40rpx;
   text-align: center;

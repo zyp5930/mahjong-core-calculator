@@ -1,6 +1,7 @@
 const store = require('../../services/store');
 
 const NOTICE_RECENT_WINDOW = 2 * 60 * 1000;
+const NOTICE_TOAST_DURATION = 3000;
 
 Page({
   data: {
@@ -202,7 +203,7 @@ Page({
       this.clearNoticeToastTimer(toast.id);
       this.noticeToastTimers[toast.id] = setTimeout(() => {
         this.closeNotice({ currentTarget: { dataset: { id: toast.id } } });
-      }, 5000);
+      }, NOTICE_TOAST_DURATION);
     });
   },
 
