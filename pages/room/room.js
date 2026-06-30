@@ -189,9 +189,14 @@ Page({
         text: this.formatNoticeText(notice)
       };
     });
+    this.appendNoticeToasts(toasts);
+    this.setData({ notices });
+  },
+
+  appendNoticeToasts(toasts) {
+    if (!toasts || !toasts.length) return;
     this.setData({
-      noticeToasts: [...this.data.noticeToasts, ...toasts],
-      notices
+      noticeToasts: [...this.data.noticeToasts, ...toasts]
     });
     toasts.forEach((toast) => {
       this.clearNoticeToastTimer(toast.id);
@@ -382,13 +387,27 @@ Page({
   },
 
   async undoLastGive(event) {
+    const toPlayerId = event.currentTarget.dataset.id;
+    const targetPlayer = this.data.players.find((player) => player.id === toPlayerId) || {};
+    const record = ((this.data.table && this.data.table.records) || []).find((item) => (
+      !item.revoked &&
+      item.operatorOpenid === this.data.myPlayer.openid &&
+      item.fromPlayerId === this.data.myPlayer.id &&
+      item.toPlayerId === toPlayerId
+    ));
     try {
-      await store.undoLastGive(
+      const table = await store.undoLastGive(
         this.data.tableId,
         this.data.myPlayer.id,
-        event.currentTarget.dataset.id
+        toPlayerId
       );
-      this.loadTable();
+      this.applyTable(table);
+      this.appendNoticeToasts([{
+        id: `undo_${Date.now()}_${toPlayerId}`,
+        text: record && record.amount
+          ? `已撤销给 ${targetPlayer.name || '玩家'} 的 ${record.amount} 分`
+          : `已撤销给 ${targetPlayer.name || '玩家'} 的计分`
+      }]);
     } catch (error) {
       wx.showToast({ title: error.message || '撤销失败', icon: 'none' });
     }
@@ -432,14 +451,19 @@ Page({
       return;
     }
     try {
+      const targetPlayer = this.data.targetPlayer;
       const table = await store.giveScore(
         this.data.tableId,
         this.data.myPlayer.id,
-        this.data.targetPlayer.id,
+        targetPlayer.id,
         amount
       );
       this.closeKeypad();
       this.applyTable(table);
+      this.appendNoticeToasts([{
+        id: `give_${Date.now()}_${targetPlayer.id}`,
+        text: `已给 ${targetPlayer.name || '玩家'} ${amount} 分`
+      }]);
     } catch (error) {
       wx.showToast({ title: error.message || '计分失败', icon: 'none' });
     }
