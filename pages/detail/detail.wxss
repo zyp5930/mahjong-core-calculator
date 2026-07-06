@@ -1,5 +1,5 @@
 .summary {
-  padding: 28rpx;
+  padding: 32rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8,30 +8,38 @@
 .summary-title {
   margin-bottom: 10rpx;
   font-size: 34rpx;
-  color: #303438;
+  color: #1f2a24;
+  font-weight: 800;
 }
 
 .status {
-  font-size: 30rpx;
+  height: 48rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  line-height: 48rpx;
 }
 
 .status.active {
-  color: #39b879;
+  background: #e8f5ef;
+  color: #16835b;
 }
 
 .status.ended {
-  color: #8d949c;
+  background: #edf1ef;
+  color: #7d8982;
 }
 
 .rank {
   margin-top: 24rpx;
-  padding: 26rpx 28rpx;
+  padding: 30rpx;
 }
 
 .rank-title {
   margin-bottom: 18rpx;
-  color: #626970;
+  color: #526159;
   font-size: 28rpx;
+  font-weight: 700;
 }
 
 .rank-row {
@@ -43,11 +51,13 @@
 }
 
 .win {
-  color: #e95d4d;
+  color: #c84636;
+  font-weight: 700;
 }
 
 .lose {
-  color: #303438;
+  color: #526159;
+  font-weight: 700;
 }
 
 .record-list {
@@ -56,16 +66,16 @@
 
 .record {
   margin-bottom: 18rpx;
-  padding: 24rpx 28rpx;
+  padding: 26rpx 30rpx;
 }
 
 .record-main {
   font-size: 30rpx;
-  color: #303438;
+  color: #1f2a24;
 }
 
 .amount {
-  color: #e95d4d;
+  color: #c84636;
   font-size: 34rpx;
   font-weight: 700;
 }
@@ -73,13 +83,13 @@
 .settlement-detail {
   display: block;
   margin-top: 10rpx;
-  color: #60666d;
+  color: #526159;
   font-size: 26rpx;
 }
 
 .revoked {
   margin-left: 14rpx;
-  color: #8d949c;
+  color: #9aa5a0;
   font-size: 24rpx;
 }
 
@@ -89,6 +99,7 @@
 }
 
 .empty {
-  padding: 46rpx 28rpx;
+  padding: 52rpx 30rpx;
   font-size: 30rpx;
+  color: #2c3832;
 }

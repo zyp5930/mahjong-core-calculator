@@ -6,18 +6,33 @@
     <view></view>
     <navigator url="/pages/profile/profile">我的</navigator>
   </view>
-  <view class="section-title">开桌</view>
+
+  <view class="hero-card">
+    <view class="hero-copy">
+      <view class="eyebrow">MAHJONG SCORE</view>
+      <view class="hero-title">开一桌，输赢都算清楚</view>
+      <view class="hero-desc">牌友扫码加入，桌主实时记分，结算明细自动保留。</view>
+    </view>
+    <view class="hero-tiles">
+      <view class="hero-tile hero-tile-back">發</view>
+      <view class="hero-tile hero-tile-mid">中</view>
+      <view class="hero-tile hero-tile-front">东</view>
+    </view>
+  </view>
+
+  <view class="section-title">快速开桌</view>
   <view class="mode-grid">
-    <navigator class="mode-card card highlight" url="/pages/create/create">
+    <navigator class="mode-card card highlight" url="/pages/create/create" hover-class="card-press" hover-stay-time="80">
       <view class="badge">多人</view>
       <view class="mode-title">多人计分桌</view>
       <view class="mode-desc">牌友扫码进入，自己操作计分</view>
+      <view class="mode-action">立即创建</view>
     </navigator>
   </view>
 
   <view class="section-title recent-title">最近牌局</view>
   <block wx:if="{{tables.length}}">
-    <view class="table-card card" wx:for="{{tables}}" wx:key="id" bindtap="openTable" data-id="{{item.id}}">
+    <view class="table-card card" wx:for="{{tables}}" wx:key="id" bindtap="openTable" data-id="{{item.id}}" hover-class="card-press" hover-stay-time="80">
       <view class="table-top">
         <text class="table-name">{{item.name}}</text>
         <text class="status {{item.status}}">{{item.statusText}}</text>

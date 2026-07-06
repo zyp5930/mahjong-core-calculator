@@ -5,7 +5,7 @@
   </view>
 
   <view class="player-list" wx:if="{{players.length > 1}}">
-    <view class="player-card card {{item.openid ? 'disabled' : ''}}" wx:for="{{players}}" wx:key="id" bindtap="selectPlayer" data-id="{{item.id}}">
+    <view class="player-card card {{item.openid ? 'disabled' : ''}}" wx:for="{{players}}" wx:key="id" bindtap="selectPlayer" data-id="{{item.id}}" hover-class="card-press" hover-stay-time="80">
       <view class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
       <view class="player-info">
         <view class="name">{{item.name}}</view>

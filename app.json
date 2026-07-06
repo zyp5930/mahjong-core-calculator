@@ -9,9 +9,9 @@
   ],
   "window": {
     "navigationBarTitleText": "戒麻么",
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarBackgroundColor": "#f6f8f7",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#eef1f3"
+    "backgroundColor": "#f6f8f7"
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

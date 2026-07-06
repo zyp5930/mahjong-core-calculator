@@ -1,7 +1,7 @@
 .room-page {
   min-height: 100vh;
   padding-bottom: 36rpx;
-  background: #eef1f3;
+  background: #f6f8f7;
 }
 
 .toolbar {
@@ -11,7 +11,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1rpx solid #e7eaed;
+  border-bottom: 1rpx solid #e6ece8;
+  box-shadow: 0 6rpx 18rpx rgba(31, 42, 36, 0.04);
 }
 
 .tool {
@@ -21,7 +22,7 @@
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: #59616a;
+  color: #526159;
   font-size: 26rpx;
   line-height: 1.2;
   display: flex;
@@ -39,11 +40,14 @@
 .tool-icon {
   width: 56rpx;
   height: 56rpx;
-  color: #858b92;
+  border-radius: 16rpx;
+  background: #f2f6f4;
+  color: #6b7870;
   font-size: 34rpx;
   line-height: 56rpx;
   text-align: center;
   font-weight: 700;
+  box-shadow: none;
 }
 
 .tool text:last-child {
@@ -56,19 +60,19 @@
 }
 
 .invite-tool {
-  color: #2f8f5b;
+  color: #16835b;
 }
 
 .invite-tool .tool-icon {
-  color: #39b879;
+  color: #16835b;
 }
 
 .detail-tool {
-  color: #456f9d;
+  color: #315f8e;
 }
 
 .detail-tool .tool-icon {
-  color: #6b9fe8;
+  color: #315f8e;
 }
 
 .end-tool {
@@ -76,16 +80,18 @@
 }
 
 .end-tool .tool-icon {
-  color: #f15d4f;
+  color: #c84636;
 }
 
 .join-tip {
   margin: 24rpx;
   padding: 22rpx 24rpx;
-  border-radius: 8rpx;
-  background: #fff7e6;
-  color: #8a5a00;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 22rpx;
+  background: #ffffff;
+  color: #3d6f5a;
   font-size: 28rpx;
+  box-shadow: 0 10rpx 26rpx rgba(31, 42, 36, 0.06);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -103,7 +109,8 @@
   margin: 0;
   padding: 0;
   flex: 0 0 auto;
-  background: #39b879;
+  border-radius: 16rpx;
+  background: #16835b;
   color: #ffffff;
   font-size: 26rpx;
   line-height: 64rpx;
@@ -120,9 +127,10 @@
 .player-card {
   min-height: 144rpx;
   margin-bottom: 22rpx;
-  padding: 24rpx 22rpx;
+  padding: 26rpx 24rpx;
   display: flex;
   align-items: center;
+  border-radius: 24rpx;
 }
 
 .avatar-wrap {
@@ -135,12 +143,13 @@
 .avatar {
   width: 90rpx;
   height: 90rpx;
-  border-radius: 12rpx;
+  border-radius: 22rpx;
   color: #ffffff;
   font-size: 38rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: none;
 }
 
 .image-avatar {
@@ -154,8 +163,8 @@
   min-width: 64rpx;
   height: 42rpx;
   padding: 0 10rpx;
-  border-radius: 0 20rpx 20rpx 20rpx;
-  background: #f15d4f;
+  border-radius: 999rpx;
+  background: #16835b;
   color: #ffffff;
   font-size: 22rpx;
   line-height: 42rpx;
@@ -185,22 +194,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #303438;
+  color: #1f2a24;
   font-size: 36rpx;
+  font-weight: 700;
 }
 
 .score-line {
-  margin-top: 18rpx;
+  margin-top: 14rpx;
   font-size: 30rpx;
-  color: #60666d;
+  color: #68746d;
 }
 
 .score-line.win {
-  color: #e95d4d;
+  color: #c84636;
 }
 
 .score-line.lose {
-  color: #60666d;
+  color: #526159;
 }
 
 .score-num {
@@ -220,7 +230,7 @@
 .undo-btn {
   flex: 1;
   height: 84rpx;
-  border-radius: 8rpx;
+  border-radius: 22rpx;
   font-size: 34rpx;
   display: flex;
   align-items: center;
@@ -228,14 +238,15 @@
 }
 
 .give-btn {
-  background: #39b879;
+  background: #16835b;
   color: #ffffff;
+  box-shadow: 0 10rpx 22rpx rgba(22, 131, 91, 0.18);
 }
 
 .undo-btn {
-  border: 1rpx solid #d7dadd;
+  border: 1rpx solid #dbe3de;
   background: #ffffff;
-  color: #60666d;
+  color: #526159;
   font-size: 30rpx;
 }
 
@@ -246,11 +257,13 @@
 .ended-mask {
   margin: 0 24rpx;
   padding: 24rpx;
-  border-radius: 8rpx;
+  border: 1rpx solid #e6ece8;
+  border-radius: 24rpx;
   background: #ffffff;
-  color: #8d949c;
+  color: #7d8982;
   text-align: center;
   font-size: 28rpx;
+  box-shadow: 0 10rpx 26rpx rgba(31, 42, 36, 0.06);
 }
 
 .notice-stack {
@@ -270,9 +283,9 @@
   max-width: 100%;
   min-height: 60rpx;
   padding: 12rpx 18rpx 12rpx 24rpx;
-  border-radius: 12rpx;
-  background: rgba(190, 196, 204, 0.8);
-  box-shadow: 0 8rpx 24rpx rgba(20, 24, 28, 0.12);
+  border-radius: 16rpx;
+  background: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(31, 42, 36, 0.1);
   display: inline-flex;
   align-items: flex-start;
   gap: 14rpx;
@@ -311,19 +324,20 @@
   transform: translateY(-50%);
   z-index: 11;
   padding: 36rpx 32rpx;
-  border-radius: 16rpx;
+  border-radius: 28rpx;
   background: #ffffff;
+  box-shadow: 0 24rpx 56rpx rgba(31, 42, 36, 0.18);
 }
 
 .invite-title {
-  color: #303438;
+  color: #1f2a24;
   font-size: 36rpx;
   text-align: center;
 }
 
 .invite-subtitle {
   margin-top: 16rpx;
-  color: #7b838b;
+  color: #7d8982;
   font-size: 26rpx;
   text-align: center;
 }
@@ -332,8 +346,8 @@
   margin: 28rpx auto 0;
   width: 440rpx;
   height: 440rpx;
-  border-radius: 12rpx;
-  background: #f4f6f8;
+  border-radius: 24rpx;
+  background: #f6f8f7;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -346,13 +360,13 @@
 }
 
 .invite-placeholder {
-  color: #8d949c;
+  color: #7d8982;
   font-size: 28rpx;
 }
 
 .invite-share-code {
   margin-top: 20rpx;
-  color: #8a5a00;
+  color: #526159;
   font-size: 26rpx;
   text-align: center;
 }
@@ -379,8 +393,8 @@
   z-index: 11;
   width: 100vw;
   padding: 38rpx 30rpx calc(34rpx + env(safe-area-inset-bottom));
-  border-radius: 18rpx 18rpx 0 0;
-  background: #eef1f3;
+  border-radius: 30rpx 30rpx 0 0;
+  background: #f6f8f7;
   overflow: hidden;
 }
 
@@ -392,27 +406,28 @@
   transform: translateY(-50%);
   z-index: 11;
   padding: 34rpx 30rpx;
-  border-radius: 16rpx;
+  border-radius: 28rpx;
   background: #ffffff;
+  box-shadow: 0 24rpx 56rpx rgba(31, 42, 36, 0.18);
 }
 
 .settlement-title {
-  color: #303438;
+  color: #1f2a24;
   font-size: 36rpx;
   text-align: center;
 }
 
 .settlement-subtitle {
   margin-top: 14rpx;
-  color: #7b838b;
+  color: #7d8982;
   font-size: 26rpx;
   text-align: center;
 }
 
 .settlement-input-row {
   margin-top: 26rpx;
-  border: 1rpx solid #d7dadd;
-  border-radius: 8rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 22rpx;
   overflow: hidden;
 }
 
@@ -433,31 +448,33 @@
 .settlement-actions button {
   flex: 1;
   height: 82rpx;
-  border-radius: 8rpx;
+  border-radius: 22rpx;
   font-size: 30rpx;
   line-height: 82rpx;
 }
 
 .settlement-actions .confirm {
-  background: #39b879;
+  background: #16835b;
   color: #ffffff;
 }
 
 .settlement-panel {
   margin: 24rpx;
   padding: 24rpx 26rpx;
-  border-radius: 8rpx;
+  border: 1rpx solid #e6ece8;
+  border-radius: 24rpx;
   background: #ffffff;
+  box-shadow: 0 14rpx 34rpx rgba(31, 42, 36, 0.08);
 }
 
 .settlement-panel-title {
-  color: #303438;
+  color: #1f2a24;
   font-size: 32rpx;
 }
 
 .settlement-panel-meta {
   margin-top: 8rpx;
-  color: #8d949c;
+  color: #7d8982;
   font-size: 24rpx;
 }
 
@@ -466,7 +483,7 @@
   display: flex;
   justify-content: space-between;
   gap: 20rpx;
-  color: #60666d;
+  color: #526159;
   font-size: 26rpx;
 }
 
@@ -477,10 +494,10 @@
 .refresh-btn {
   width: 100%;
   height: 88rpx;
-  border: 1rpx solid #d7dadd;
-  border-radius: 8rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 22rpx;
   background: #ffffff;
-  color: #60666d;
+  color: #526159;
   font-size: 30rpx;
   line-height: 88rpx;
 }
@@ -489,7 +506,7 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
-  color: #303438;
+  color: #1f2a24;
   font-size: 36rpx;
 }
 
@@ -508,15 +525,15 @@
   position: relative;
   height: 98rpx;
   margin-top: 30rpx;
-  border: 1rpx solid #d7dadd;
-  border-radius: 8rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 22rpx;
   background: #ffffff;
   overflow: hidden;
 }
 
 .score-input {
   padding: 0 106rpx 0 30rpx;
-  color: #303438;
+  color: #1f2a24;
   font-size: 38rpx;
   line-height: 98rpx;
   overflow: hidden;
@@ -525,7 +542,7 @@
 }
 
 .score-input.placeholder {
-  color: #a2a8af;
+  color: #9aa5a0;
 }
 
 .score-delete {
@@ -536,7 +553,7 @@
   height: 98rpx;
   margin: 0;
   padding: 0;
-  border-left: 1rpx solid #d7dadd;
+  border-left: 1rpx solid #e6ece8;
   border-radius: 0;
   background: #ffffff;
   display: flex;
@@ -545,7 +562,7 @@
 }
 
 .delete-icon {
-  color: #707780;
+  color: #68746d;
   font-size: 38rpx;
   line-height: 1;
 }
@@ -562,10 +579,10 @@
   width: 100%;
   min-width: 0;
   height: 104rpx;
-  border: 1rpx solid #d7dadd;
-  border-radius: 8rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 22rpx;
   background: #ffffff;
-  color: #303438;
+  color: #1f2a24;
   font-size: 42rpx;
   display: flex;
   align-items: center;
@@ -573,8 +590,8 @@
 }
 
 .keypad button.confirm {
-  background: #39b879;
-  border-color: #39b879;
+  background: #16835b;
+  border-color: #16835b;
   color: #ffffff;
   font-size: 34rpx;
 }

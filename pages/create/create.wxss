@@ -1,32 +1,34 @@
 .form {
-  padding: 30rpx;
+  padding: 34rpx;
 }
 
 .field + .field {
-  margin-top: 32rpx;
+  margin-top: 34rpx;
 }
 
 .label {
   display: block;
   margin-bottom: 16rpx;
-  color: #626970;
+  color: #526159;
   font-size: 28rpx;
+  font-weight: 600;
 }
 
 input {
-  height: 84rpx;
-  padding: 0 22rpx;
-  border: 1rpx solid #dfe3e6;
-  border-radius: 8rpx;
+  height: 92rpx;
+  padding: 0 26rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 22rpx;
   background: #ffffff;
+  color: #1f2a24;
   font-size: 30rpx;
 }
 
 .avatar-picker {
-  height: 120rpx;
-  padding: 0 22rpx;
-  border: 1rpx solid #dfe3e6;
-  border-radius: 8rpx;
+  height: 128rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 22rpx;
   background: #ffffff;
   display: flex;
   align-items: center;
@@ -38,12 +40,12 @@ input {
 .avatar-fallback {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 12rpx;
+  border-radius: 20rpx;
   flex: 0 0 auto;
 }
 
 .avatar-fallback {
-  background: #6b9fe8;
+  background: #315f8e;
   color: #ffffff;
   font-size: 34rpx;
   display: flex;
@@ -52,17 +54,22 @@ input {
 }
 
 .avatar-copy {
-  color: #303438;
+  color: #1f2a24;
   font-size: 30rpx;
+  font-weight: 600;
 }
 
 .hint {
-  margin-top: 22rpx;
-  color: #8a5a00;
+  margin-top: 26rpx;
+  padding: 20rpx 22rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 20rpx;
+  background: #f4fbf7;
+  color: #3d6f5a;
   font-size: 26rpx;
   line-height: 1.5;
 }
 
 .submit {
-  margin-top: 36rpx;
+  margin-top: 38rpx;
 }

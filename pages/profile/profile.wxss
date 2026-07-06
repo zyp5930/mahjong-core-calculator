@@ -1,5 +1,5 @@
 .profile-card {
-  padding: 30rpx;
+  padding: 34rpx;
   display: flex;
   align-items: center;
   gap: 22rpx;
@@ -8,19 +8,21 @@
 .avatar {
   width: 92rpx;
   height: 92rpx;
-  border-radius: 12rpx;
-  background: #39b879;
+  border-radius: 24rpx;
+  background: #16835b;
   color: #ffffff;
   font-size: 34rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 10rpx 22rpx rgba(22, 131, 91, 0.18);
 }
 
 .name {
   margin-bottom: 8rpx;
   font-size: 34rpx;
-  color: #303438;
+  color: #1f2a24;
+  font-weight: 800;
 }
 
 .menu {
@@ -31,12 +33,13 @@
 .menu button {
   height: 104rpx;
   padding: 0 28rpx;
-  border-bottom: 1rpx solid #eef1f3;
-  color: #303438;
+  border-bottom: 1rpx solid #e6ece8;
+  color: #1f2a24;
   font-size: 30rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: transparent;
 }
 
 .menu button:last-child {
@@ -44,6 +47,6 @@
 }
 
 .arrow {
-  color: #b2b7bd;
+  color: #9aa5a0;
   font-size: 40rpx;
 }
