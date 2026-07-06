@@ -179,6 +179,25 @@
   background: #e8f5ef;
 }
 
+.mode-card.highlight::before {
+  content: "東";
+  position: absolute;
+  right: 52rpx;
+  top: 34rpx;
+  width: 70rpx;
+  height: 92rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 14rpx;
+  background: #fffef8;
+  color: rgba(22, 131, 91, 0.2);
+  font-size: 42rpx;
+  line-height: 92rpx;
+  text-align: center;
+  font-weight: 800;
+  transform: rotate(8deg);
+  z-index: 1;
+}
+
 .badge {
   position: absolute;
   left: 30rpx;

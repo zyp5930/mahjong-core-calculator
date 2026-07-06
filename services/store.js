@@ -172,9 +172,10 @@ async function uploadCloudAvatar(avatarUrl) {
 }
 
 async function resolveCloudAvatarUrl(avatarFileId, fallbackUrl) {
-  if (!isCloudAvatarUrl(avatarFileId) || !wx.cloud || !wx.cloud.getTempFileURL) {
+  if (!isCloudAvatarUrl(avatarFileId)) {
     return fallbackUrl || avatarFileId || '';
   }
+  if (!wx.cloud || !wx.cloud.getTempFileURL) return fallbackUrl || '';
   const cached = avatarUrlCache[avatarFileId];
   if (cached && Date.now() - cached.createdAt < AVATAR_URL_CACHE_TTL) return cached.url;
   try {
@@ -192,7 +193,17 @@ async function resolveCloudAvatarUrl(avatarFileId, fallbackUrl) {
   } catch (error) {
     console.error('[avatar getTempFileURL error]', error);
   }
-  return fallbackUrl || avatarFileId;
+  return fallbackUrl || '';
+}
+
+function clearAvatarUrlCache(avatarFileId) {
+  if (avatarFileId) {
+    delete avatarUrlCache[avatarFileId];
+    return;
+  }
+  Object.keys(avatarUrlCache).forEach((key) => {
+    delete avatarUrlCache[key];
+  });
 }
 
 async function ensureMe() {
@@ -707,6 +718,7 @@ module.exports = {
   getStoredMode,
   getTableCode,
   normalizeTable,
+  clearAvatarUrlCache,
   isNoticeSeen,
   markNoticeSeen
 };

@@ -1,12 +1,41 @@
 .intro {
   padding: 34rpx;
+  overflow: hidden;
+  position: relative;
+}
+
+.intro::after {
+  content: "和";
+  position: absolute;
+  right: 30rpx;
+  top: 28rpx;
+  width: 70rpx;
+  height: 92rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 14rpx;
+  background: #fffef8;
+  color: rgba(22, 131, 91, 0.18);
+  font-size: 44rpx;
+  line-height: 92rpx;
+  text-align: center;
+  font-weight: 800;
+  transform: rotate(8deg);
 }
 
 .title {
+  max-width: 500rpx;
   margin-bottom: 14rpx;
   font-size: 36rpx;
   color: #1f2a24;
   font-weight: 800;
+  position: relative;
+  z-index: 1;
+}
+
+.intro .muted {
+  max-width: 500rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .player-list {

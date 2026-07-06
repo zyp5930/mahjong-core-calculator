@@ -22,7 +22,18 @@
   <view class="players">
     <view class="player-card card" wx:for="{{players}}" wx:key="id">
       <view class="avatar-wrap">
-        <image wx:if="{{item.avatarDisplayUrl}}" class="avatar image-avatar" src="{{item.avatarDisplayUrl}}" mode="aspectFill" data-avatar-key="{{item.viewKey}}"></image>
+        <image
+          wx:if="{{item.avatarDisplayUrl && !item.avatarLoadFailed}}"
+          class="avatar image-avatar"
+          src="{{item.avatarDisplayUrl}}"
+          mode="aspectFill"
+          bindload="onAvatarLoad"
+          binderror="onAvatarError"
+          data-id="{{item.id}}"
+          data-view-key="{{item.viewKey}}"
+          data-avatar-file-id="{{item.avatarFileId}}"
+          data-avatar-url="{{item.avatarDisplayUrl}}"
+        ></image>
         <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
         <view wx:if="{{item.rankEmoji}}" class="rank-emoji">{{item.rankEmoji}}</view>
         <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
@@ -67,7 +78,18 @@
   <view class="sheet-mask" wx:if="{{keypadVisible}}" bindtap="closeKeypad"></view>
   <view class="score-sheet" wx:if="{{keypadVisible}}">
     <view class="sheet-player">
-      <image wx:if="{{targetPlayer.avatarDisplayUrl}}" class="sheet-avatar image-avatar" src="{{targetPlayer.avatarDisplayUrl}}" mode="aspectFill" data-avatar-key="{{targetPlayer.viewKey}}"></image>
+      <image
+        wx:if="{{targetPlayer.avatarDisplayUrl && !targetPlayer.avatarLoadFailed}}"
+        class="sheet-avatar image-avatar"
+        src="{{targetPlayer.avatarDisplayUrl}}"
+        mode="aspectFill"
+        bindload="onAvatarLoad"
+        binderror="onAvatarError"
+        data-id="{{targetPlayer.id}}"
+        data-view-key="{{targetPlayer.viewKey}}"
+        data-avatar-file-id="{{targetPlayer.avatarFileId}}"
+        data-avatar-url="{{targetPlayer.avatarDisplayUrl}}"
+      ></image>
       <view wx:else class="sheet-avatar" style="background: {{targetPlayer.avatarColor}}">{{targetPlayer.initial}}</view>
       <text>{{targetPlayer.name}}</text>
     </view>

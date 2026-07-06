@@ -1,5 +1,63 @@
 .form {
   padding: 34rpx;
+  overflow: hidden;
+}
+
+.form-header {
+  margin-bottom: 34rpx;
+  padding-bottom: 30rpx;
+  border-bottom: 1rpx solid #edf2ef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.form-title {
+  color: #1f2a24;
+  font-size: 36rpx;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.form-subtitle {
+  margin-top: 10rpx;
+  color: #7d8982;
+  font-size: 26rpx;
+}
+
+.mini-tiles {
+  width: 112rpx;
+  height: 76rpx;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.mini-tiles view {
+  position: absolute;
+  width: 54rpx;
+  height: 72rpx;
+  border: 1rpx solid #dbe3de;
+  border-radius: 12rpx;
+  background: #fffef8;
+  color: #16835b;
+  font-size: 28rpx;
+  line-height: 72rpx;
+  text-align: center;
+  font-weight: 800;
+  box-shadow: 0 8rpx 16rpx rgba(31, 42, 36, 0.08);
+}
+
+.mini-tiles view:first-child {
+  right: 48rpx;
+  top: 0;
+  transform: rotate(-8deg);
+}
+
+.mini-tiles view:last-child {
+  right: 8rpx;
+  top: 8rpx;
+  color: #c84636;
+  transform: rotate(7deg);
 }
 
 .field + .field {

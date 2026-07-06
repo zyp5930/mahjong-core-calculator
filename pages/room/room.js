@@ -31,6 +31,9 @@ Page({
 
   async onLoad(options) {
     this.noticeToastTimers = {};
+    this.avatarDisplayCache = {};
+    this.failedAvatarKeys = {};
+    this.avatarRetryCounts = {};
     await store.ensureMe();
     this.setData({
       mode: store.getStoredMode(),
@@ -136,25 +139,81 @@ Page({
     const maxScore = scores.length ? Math.max(...scores) : 0;
     const minScore = scores.length ? Math.min(...scores) : 0;
     const hasWinnerAndLoser = playerList.length > 1 && maxScore !== minScore;
+    this.avatarDisplayCache = this.avatarDisplayCache || {};
+    this.failedAvatarKeys = this.failedAvatarKeys || {};
 
     return playerList.map((player) => {
       const score = Number(player.score) || 0;
+      const avatarCacheKey = `${player.id}:${player.avatarFileId || player.avatarUrl || ''}`;
+      let avatarDisplayUrl = this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId);
+      if (avatarDisplayUrl) {
+        this.avatarDisplayCache[avatarCacheKey] = avatarDisplayUrl;
+      } else if (this.avatarDisplayCache[avatarCacheKey]) {
+        avatarDisplayUrl = this.avatarDisplayCache[avatarCacheKey];
+      }
+      const viewKey = `${player.id}_${player.avatarFileId || ''}_${avatarDisplayUrl || player.avatarUrl || 'avatar-empty'}`;
       return {
         ...player,
         initial: String(player.name || '').slice(0, 1),
         absScore: Math.abs(score),
         rankEmoji: hasWinnerAndLoser && score === maxScore ? '🐶' : (hasWinnerAndLoser && score === minScore ? '😭' : ''),
-        avatarDisplayUrl: this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId),
-        viewKey: `${player.id}_${player.avatarFileId || player.avatarUrl || 'avatar-empty'}`
+        avatarDisplayUrl,
+        viewKey,
+        avatarLoadFailed: !!this.failedAvatarKeys[viewKey]
       };
     });
   },
 
   buildAvatarDisplayUrl(avatarUrl, avatarFileId) {
-    if (!avatarUrl) return '';
-    const version = avatarFileId || avatarUrl;
-    const separator = avatarUrl.includes('?') ? '&' : '?';
-    return `${avatarUrl}${separator}v=${encodeURIComponent(version)}`;
+    const value = String(avatarUrl || '');
+    if (!value || /^cloud:\/\//.test(value)) return '';
+    if (/^wxfile:\/\//.test(value) || /^https?:\/\/tmp\//.test(value)) return value;
+    const version = avatarFileId || value;
+    if (!version) return value;
+    const separator = value.includes('?') ? '&' : '?';
+    return `${value}${separator}v=${encodeURIComponent(version)}`;
+  },
+
+  onAvatarLoad(event) {
+    const viewKey = event.currentTarget.dataset.viewKey;
+    if (viewKey && this.failedAvatarKeys && this.failedAvatarKeys[viewKey]) {
+      delete this.failedAvatarKeys[viewKey];
+    }
+  },
+
+  onAvatarError(event) {
+    const dataset = event.currentTarget.dataset || {};
+    const viewKey = dataset.viewKey;
+    const avatarFileId = dataset.avatarFileId;
+    const avatarUrl = dataset.avatarUrl;
+    if (viewKey) this.markAvatarLoadFailed(viewKey);
+    this.retryAvatarLoad(avatarFileId || avatarUrl || viewKey, avatarFileId);
+  },
+
+  markAvatarLoadFailed(viewKey) {
+    this.failedAvatarKeys = this.failedAvatarKeys || {};
+    this.failedAvatarKeys[viewKey] = true;
+    const players = (this.data.players || []).map((player) => (
+      player.viewKey === viewKey ? { ...player, avatarLoadFailed: true } : player
+    ));
+    const targetPlayer = this.data.targetPlayer && this.data.targetPlayer.viewKey === viewKey
+      ? { ...this.data.targetPlayer, avatarLoadFailed: true }
+      : this.data.targetPlayer;
+    this.setData({ players, targetPlayer });
+  },
+
+  retryAvatarLoad(retryKey, avatarFileId) {
+    if (!retryKey) return;
+    this.avatarRetryCounts = this.avatarRetryCounts || {};
+    const retryCount = this.avatarRetryCounts[retryKey] || 0;
+    if (retryCount >= 1) return;
+    this.avatarRetryCounts[retryKey] = retryCount + 1;
+    if (avatarFileId && store.clearAvatarUrlCache) {
+      store.clearAvatarUrlCache(avatarFileId);
+    }
+    setTimeout(() => {
+      if (this.data.tableId) this.loadTable();
+    }, 250);
   },
 
   startWatching() {

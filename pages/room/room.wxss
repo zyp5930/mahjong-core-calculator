@@ -40,8 +40,9 @@
 .tool-icon {
   width: 56rpx;
   height: 56rpx;
-  border-radius: 16rpx;
-  background: #f2f6f4;
+  border: 1rpx solid #dbe3de;
+  border-radius: 12rpx;
+  background: #fffef8;
   color: #6b7870;
   font-size: 34rpx;
   line-height: 56rpx;
@@ -131,6 +132,19 @@
   display: flex;
   align-items: center;
   border-radius: 24rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 28rpx;
+  bottom: 28rpx;
+  width: 6rpx;
+  border-radius: 0 999rpx 999rpx 0;
+  background: #d8ebe2;
 }
 
 .avatar-wrap {
@@ -203,6 +217,8 @@
   margin-top: 14rpx;
   font-size: 30rpx;
   color: #68746d;
+  display: inline-flex;
+  align-items: baseline;
 }
 
 .score-line.win {
@@ -215,8 +231,21 @@
 
 .score-num {
   margin-left: 10rpx;
+  min-width: 72rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: #f4f7f5;
   font-size: 42rpx;
   font-weight: 700;
+  text-align: center;
+}
+
+.score-line.win .score-num {
+  background: #fff0ed;
+}
+
+.score-line.lose .score-num {
+  background: #edf1ef;
 }
 
 .action-group {

@@ -1,5 +1,15 @@
 <view class="page create-page">
   <view class="form card">
+    <view class="form-header">
+      <view>
+        <view class="form-title">开一桌麻将</view>
+        <view class="form-subtitle">设置桌名和桌主资料</view>
+      </view>
+      <view class="mini-tiles">
+        <view>东</view>
+        <view>中</view>
+      </view>
+    </view>
     <view class="field">
       <text class="label">牌局名称</text>
       <input value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
