@@ -406,6 +406,21 @@ Page({
       item.fromPlayerId === this.data.myPlayer.id &&
       item.toPlayerId === toPlayerId
     ));
+    const confirmRes = await new Promise((resolve) => {
+      wx.showModal({
+        title: '确认撤销',
+        content: record && record.amount
+          ? `确定撤销给 ${targetPlayer.name || '玩家'} 的 ${record.amount} 分吗？`
+          : `确定撤销给 ${targetPlayer.name || '玩家'} 的上次计分吗？`,
+        confirmText: '撤销',
+        confirmColor: '#d94f45',
+        cancelText: '取消',
+        success: resolve,
+        fail: () => resolve({ confirm: false })
+      });
+    });
+    if (!confirmRes.confirm) return;
+
     try {
       const table = await store.undoLastGive(
         this.data.tableId,
