@@ -1,18 +1,19 @@
 .room-page {
   min-height: 100vh;
   padding-bottom: 36rpx;
-  background: #f6f8f7;
+  background:
+    linear-gradient(180deg, #fff7e7 0%, #f7f6f1 34%, #f6f8f7 100%);
 }
 
 .toolbar {
   min-height: 136rpx;
   padding: 20rpx 42rpx 16rpx;
-  background: #ffffff;
+  background: rgba(255, 253, 248, 0.96);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1rpx solid #e6ece8;
-  box-shadow: 0 6rpx 18rpx rgba(31, 42, 36, 0.04);
+  border-bottom: 1rpx solid #f0e6d6;
+  box-shadow: 0 8rpx 22rpx rgba(96, 69, 34, 0.06);
 }
 
 .tool {
@@ -40,7 +41,7 @@
 .tool-icon {
   width: 56rpx;
   height: 56rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #eadcc4;
   border-radius: 12rpx;
   background: #fffef8;
   color: #6b7870;
@@ -61,11 +62,11 @@
 }
 
 .invite-tool {
-  color: #16835b;
+  color: #12855a;
 }
 
 .invite-tool .tool-icon {
-  color: #16835b;
+  color: #12855a;
 }
 
 .detail-tool {
@@ -89,10 +90,10 @@
   padding: 22rpx 24rpx;
   border: 1rpx solid #d8ebe2;
   border-radius: 22rpx;
-  background: #ffffff;
+  background: #fffdf8;
   color: #3d6f5a;
   font-size: 28rpx;
-  box-shadow: 0 10rpx 26rpx rgba(31, 42, 36, 0.06);
+  box-shadow: 0 14rpx 34rpx rgba(96, 69, 34, 0.09);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -111,7 +112,7 @@
   padding: 0;
   flex: 0 0 auto;
   border-radius: 16rpx;
-  background: #16835b;
+  background: #12855a;
   color: #ffffff;
   font-size: 26rpx;
   line-height: 64rpx;
@@ -134,6 +135,9 @@
   border-radius: 24rpx;
   position: relative;
   overflow: hidden;
+  background: #fffdf8;
+  border-color: #eee4d4;
+  box-shadow: 0 18rpx 40rpx rgba(96, 69, 34, 0.09);
 }
 
 .player-card::before {
@@ -178,7 +182,7 @@
   height: 42rpx;
   padding: 0 10rpx;
   border-radius: 999rpx;
-  background: #16835b;
+  background: #12855a;
   color: #ffffff;
   font-size: 22rpx;
   line-height: 42rpx;
@@ -267,14 +271,14 @@
 }
 
 .give-btn {
-  background: #16835b;
+  background: #12855a;
   color: #ffffff;
-  box-shadow: 0 10rpx 22rpx rgba(22, 131, 91, 0.18);
+  box-shadow: 0 10rpx 22rpx rgba(18, 133, 90, 0.2);
 }
 
 .undo-btn {
-  border: 1rpx solid #dbe3de;
-  background: #ffffff;
+  border: 1rpx solid #ded7ca;
+  background: #fffdf8;
   color: #526159;
   font-size: 30rpx;
 }
@@ -286,13 +290,13 @@
 .ended-mask {
   margin: 0 24rpx;
   padding: 24rpx;
-  border: 1rpx solid #e6ece8;
+  border: 1rpx solid #eee4d4;
   border-radius: 24rpx;
-  background: #ffffff;
+  background: #fffdf8;
   color: #7d8982;
   text-align: center;
   font-size: 28rpx;
-  box-shadow: 0 10rpx 26rpx rgba(31, 42, 36, 0.06);
+  box-shadow: 0 14rpx 34rpx rgba(96, 69, 34, 0.09);
 }
 
 .notice-stack {
@@ -313,8 +317,10 @@
   min-height: 60rpx;
   padding: 12rpx 18rpx 12rpx 24rpx;
   border-radius: 16rpx;
-  background: #ffffff;
-  box-shadow: 0 8rpx 24rpx rgba(31, 42, 36, 0.1);
+  border: 1rpx solid #d8ebe2;
+  border-left: 8rpx solid #12855a;
+  background: #f4fbf7;
+  box-shadow: 0 10rpx 24rpx rgba(18, 133, 90, 0.1);
   display: inline-flex;
   align-items: flex-start;
   gap: 14rpx;
@@ -326,7 +332,7 @@
   flex: 0 1 auto;
   min-width: 0;
   max-width: calc(100vw - 150rpx);
-  color: #3f454d;
+  color: #315447;
   font-size: 30rpx;
   font-weight: 600;
   line-height: 1.35;
@@ -337,7 +343,7 @@
   min-width: 32rpx;
   height: 40rpx;
   margin: -2rpx 0 0;
-  color: #60656d;
+  color: #6e7c75;
   font-size: 40rpx;
   line-height: 40rpx;
   text-align: center;
@@ -354,8 +360,8 @@
   z-index: 11;
   padding: 36rpx 32rpx;
   border-radius: 28rpx;
-  background: #ffffff;
-  box-shadow: 0 24rpx 56rpx rgba(31, 42, 36, 0.18);
+  background: #fffdf8;
+  box-shadow: 0 24rpx 56rpx rgba(96, 69, 34, 0.18);
 }
 
 .invite-title {
@@ -376,7 +382,7 @@
   width: 440rpx;
   height: 440rpx;
   border-radius: 24rpx;
-  background: #f6f8f7;
+  background: #f8f5ec;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -423,7 +429,7 @@
   width: 100vw;
   padding: 38rpx 30rpx calc(34rpx + env(safe-area-inset-bottom));
   border-radius: 30rpx 30rpx 0 0;
-  background: #f6f8f7;
+  background: #f8f5ec;
   overflow: hidden;
 }
 
@@ -436,8 +442,8 @@
   z-index: 11;
   padding: 34rpx 30rpx;
   border-radius: 28rpx;
-  background: #ffffff;
-  box-shadow: 0 24rpx 56rpx rgba(31, 42, 36, 0.18);
+  background: #fffdf8;
+  box-shadow: 0 24rpx 56rpx rgba(96, 69, 34, 0.18);
 }
 
 .settlement-title {
@@ -455,7 +461,7 @@
 
 .settlement-input-row {
   margin-top: 26rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #ded7ca;
   border-radius: 22rpx;
   overflow: hidden;
 }
@@ -483,17 +489,17 @@
 }
 
 .settlement-actions .confirm {
-  background: #16835b;
+  background: #12855a;
   color: #ffffff;
 }
 
 .settlement-panel {
   margin: 24rpx;
   padding: 24rpx 26rpx;
-  border: 1rpx solid #e6ece8;
+  border: 1rpx solid #eee4d4;
   border-radius: 24rpx;
-  background: #ffffff;
-  box-shadow: 0 14rpx 34rpx rgba(31, 42, 36, 0.08);
+  background: #fffdf8;
+  box-shadow: 0 18rpx 40rpx rgba(96, 69, 34, 0.09);
 }
 
 .settlement-panel-title {
@@ -523,9 +529,9 @@
 .refresh-btn {
   width: 100%;
   height: 88rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #ded7ca;
   border-radius: 22rpx;
-  background: #ffffff;
+  background: #fffdf8;
   color: #526159;
   font-size: 30rpx;
   line-height: 88rpx;
@@ -554,9 +560,9 @@
   position: relative;
   height: 98rpx;
   margin-top: 30rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #ded7ca;
   border-radius: 22rpx;
-  background: #ffffff;
+  background: #fffdf8;
   overflow: hidden;
 }
 
@@ -582,9 +588,9 @@
   height: 98rpx;
   margin: 0;
   padding: 0;
-  border-left: 1rpx solid #e6ece8;
+  border-left: 1rpx solid #eee4d4;
   border-radius: 0;
-  background: #ffffff;
+  background: #fffdf8;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -608,9 +614,9 @@
   width: 100%;
   min-width: 0;
   height: 104rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #ded7ca;
   border-radius: 22rpx;
-  background: #ffffff;
+  background: #fffdf8;
   color: #1f2a24;
   font-size: 42rpx;
   display: flex;
@@ -619,8 +625,8 @@
 }
 
 .keypad button.confirm {
-  background: #16835b;
-  border-color: #16835b;
+  background: #12855a;
+  border-color: #12855a;
   color: #ffffff;
   font-size: 34rpx;
 }

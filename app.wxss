@@ -1,6 +1,6 @@
 page {
   min-height: 100%;
-  background: #f6f8f7;
+  background: #f8f5ec;
   color: #1f2a24;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
 }
@@ -27,45 +27,46 @@ button::after {
 .page {
   min-height: 100vh;
   padding: 28rpx;
-  background: #f6f8f7;
+  background:
+    linear-gradient(180deg, #fff5df 0%, #f8f5ec 42%, #f6f8f7 100%);
 }
 
 .card {
-  background: #ffffff;
-  border: 1rpx solid #e6ece8;
+  background: #fffdf8;
+  border: 1rpx solid #eee4d4;
   border-radius: 24rpx;
-  box-shadow: 0 14rpx 34rpx rgba(31, 42, 36, 0.08);
+  box-shadow: 0 18rpx 40rpx rgba(96, 69, 34, 0.1);
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .card-press {
   transform: scale(0.985);
-  box-shadow: 0 8rpx 18rpx rgba(31, 42, 36, 0.08);
+  box-shadow: 0 10rpx 22rpx rgba(96, 69, 34, 0.1);
 }
 
 .primary-btn {
   height: 92rpx;
   border-radius: 22rpx;
-  background: #16835b;
+  background: #12855a;
   color: #ffffff;
   font-size: 34rpx;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 20rpx rgba(22, 131, 91, 0.16);
+  box-shadow: 0 10rpx 20rpx rgba(18, 133, 90, 0.2);
 }
 
 .ghost-btn {
   height: 86rpx;
-  border: 2rpx solid #dbe3de;
+  border: 2rpx solid #ded7ca;
   border-radius: 22rpx;
   color: #526159;
   font-size: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: #fffdf8;
 }
 
 .muted {

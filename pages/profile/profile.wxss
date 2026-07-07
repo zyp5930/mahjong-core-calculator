@@ -9,13 +9,13 @@
   width: 92rpx;
   height: 92rpx;
   border-radius: 24rpx;
-  background: #16835b;
+  background: #12855a;
   color: #ffffff;
   font-size: 34rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 22rpx rgba(22, 131, 91, 0.18);
+  box-shadow: 0 10rpx 22rpx rgba(18, 133, 90, 0.2);
 }
 
 .name {
@@ -33,7 +33,7 @@
 .menu button {
   height: 104rpx;
   padding: 0 28rpx;
-  border-bottom: 1rpx solid #e6ece8;
+  border-bottom: 1rpx solid #f0e6d6;
   color: #1f2a24;
   font-size: 30rpx;
   display: flex;

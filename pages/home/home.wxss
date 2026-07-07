@@ -1,5 +1,7 @@
 .home-page {
   padding-top: 28rpx;
+  background:
+    linear-gradient(180deg, #fff5df 0%, #f8f5ec 42%, #f6f8f7 100%);
 }
 
 .top-actions {
@@ -21,7 +23,7 @@
 }
 
 .mode-tag.cloud {
-  background: #e8f5ef;
+  background: #dfeecf;
   color: #16835b;
 }
 
@@ -34,7 +36,7 @@
 .top-actions navigator {
   width: 120rpx;
   height: 54rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #d9dfdb;
   border-radius: 999rpx;
   background: #ffffff;
   color: #526159;
@@ -161,11 +163,12 @@
   padding: 32rpx;
   position: relative;
   overflow: hidden;
+  background: #fffdf7;
 }
 
 .mode-card.highlight {
-  border-color: #d8ebe2;
-  box-shadow: 0 18rpx 38rpx rgba(22, 131, 91, 0.12);
+  border-color: #ecdfc9;
+  box-shadow: 0 22rpx 46rpx rgba(96, 69, 34, 0.12);
 }
 
 .mode-card.highlight::after {
@@ -176,7 +179,7 @@
   width: 168rpx;
   height: 168rpx;
   border-radius: 50%;
-  background: #e8f5ef;
+  background: #edf5e8;
 }
 
 .mode-card.highlight::before {
@@ -186,7 +189,7 @@
   top: 34rpx;
   width: 70rpx;
   height: 92rpx;
-  border: 1rpx solid #d8ebe2;
+  border: 1rpx solid #eadcc4;
   border-radius: 14rpx;
   background: #fffef8;
   color: rgba(22, 131, 91, 0.2);
@@ -206,8 +209,8 @@
   height: 38rpx;
   padding: 0 14rpx;
   border-radius: 0 0 14rpx 14rpx;
-  background: #e8f5ef;
-  color: #16835b;
+  background: #c57e20;
+  color: #ffffff;
   font-size: 24rpx;
   line-height: 38rpx;
   text-align: center;
@@ -237,15 +240,15 @@
   bottom: 28rpx;
   min-width: 142rpx;
   height: 56rpx;
-  border-radius: 16rpx;
-  background: #16835b;
+  border-radius: 999rpx;
+  background: #12855a;
   color: #ffffff;
   font-size: 26rpx;
   line-height: 56rpx;
   text-align: center;
   font-weight: 600;
   z-index: 1;
-  box-shadow: 0 8rpx 18rpx rgba(22, 131, 91, 0.14);
+  box-shadow: 0 10rpx 20rpx rgba(18, 133, 90, 0.2);
 }
 
 .recent-title {
@@ -253,14 +256,32 @@
 }
 
 .table-card {
-  padding: 30rpx;
-  margin-bottom: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 28rpx;
+  border-color: #eee4d4;
+  background: #fffdf8;
+  box-shadow: 0 22rpx 48rpx rgba(96, 69, 34, 0.11);
+  position: relative;
+  overflow: hidden;
+}
+
+.table-card::after {
+  content: "";
+  position: absolute;
+  right: -34rpx;
+  top: -38rpx;
+  width: 142rpx;
+  height: 142rpx;
+  border-radius: 50%;
+  background: rgba(22, 131, 91, 0.06);
 }
 
 .table-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
+  z-index: 1;
 }
 
 .table-name {
@@ -270,21 +291,22 @@
 }
 
 .status {
-  height: 48rpx;
-  padding: 0 18rpx;
+  height: 46rpx;
+  padding: 0 20rpx;
   border-radius: 999rpx;
   font-size: 26rpx;
-  line-height: 48rpx;
+  line-height: 46rpx;
+  font-weight: 600;
 }
 
 .status.active {
-  background: #e8f5ef;
-  color: #16835b;
+  background: #e3f2ea;
+  color: #12855a;
 }
 
 .status.ended {
-  background: #edf1ef;
-  color: #7d8982;
+  background: #eef1ef;
+  color: #7b8680;
 }
 
 .players {
@@ -292,6 +314,8 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 20rpx;
   margin-top: 26rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .player-chip {
@@ -339,14 +363,19 @@
 
 .table-meta {
   margin-top: 24rpx;
-  color: #8b9690;
+  color: #9a8c78;
   font-size: 26rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .empty {
   padding: 48rpx 28rpx;
   font-size: 30rpx;
   color: #2c3832;
+  border-color: #eee4d4;
+  background: #fffdf8;
+  box-shadow: 0 22rpx 48rpx rgba(96, 69, 34, 0.11);
 }
 
 .empty .muted {

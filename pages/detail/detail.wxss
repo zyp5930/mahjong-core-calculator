@@ -21,13 +21,13 @@
 }
 
 .status.active {
-  background: #e8f5ef;
-  color: #16835b;
+  background: #e3f2ea;
+  color: #12855a;
 }
 
 .status.ended {
-  background: #edf1ef;
-  color: #7d8982;
+  background: #eef1ef;
+  color: #7b8680;
 }
 
 .rank {
@@ -50,7 +50,7 @@
   width: 10rpx;
   height: 30rpx;
   border-radius: 999rpx;
-  background: #16835b;
+  background: #12855a;
   display: block;
 }
 
@@ -79,11 +79,26 @@
 .record {
   margin-bottom: 18rpx;
   padding: 26rpx 30rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+.record::after {
+  content: "";
+  position: absolute;
+  right: -40rpx;
+  top: -44rpx;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: rgba(18, 133, 90, 0.05);
 }
 
 .record-main {
   font-size: 30rpx;
   color: #1f2a24;
+  position: relative;
+  z-index: 1;
 }
 
 .amount {
@@ -108,6 +123,8 @@
 .time {
   margin-top: 12rpx;
   font-size: 24rpx;
+  position: relative;
+  z-index: 1;
 }
 
 .empty {

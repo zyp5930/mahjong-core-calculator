@@ -11,7 +11,7 @@
   top: 28rpx;
   width: 70rpx;
   height: 92rpx;
-  border: 1rpx solid #d8ebe2;
+  border: 1rpx solid #eadcc4;
   border-radius: 14rpx;
   background: #fffef8;
   color: rgba(22, 131, 91, 0.18);
@@ -80,7 +80,7 @@
 .radio {
   width: 38rpx;
   height: 38rpx;
-  border: 2rpx solid #cfd8d2;
+  border: 2rpx solid #ded7ca;
   border-radius: 50%;
 }
 
@@ -109,7 +109,7 @@
 .avatar-picker {
   height: 128rpx;
   padding: 0 24rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #ded7ca;
   border-radius: 22rpx;
   background: #ffffff;
   display: flex;
@@ -152,7 +152,7 @@
 input {
   height: 92rpx;
   padding: 0 26rpx;
-  border: 1rpx solid #dbe3de;
+  border: 1rpx solid #ded7ca;
   border-radius: 22rpx;
   background: #ffffff;
   color: #1f2a24;
