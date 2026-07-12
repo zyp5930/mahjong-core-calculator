@@ -1,4 +1,4 @@
-const { makeId, makeShareCode } = require('../utils/format');
+const { makeId, makeShareCode, normalizeScore } = require('../utils/format');
 
 const STORAGE_KEY = 'mahjong_tables_v1';
 const OPENID_KEY = 'mahjong_local_openid_v1';
@@ -94,6 +94,40 @@ function normalizePlayer(name, index, isOwner) {
 
 function sortPlayers(players) {
   return players.slice().sort((left, right) => right.score - left.score);
+}
+
+function normalizeFinalScores(finalScores) {
+  return (finalScores || []).map((item) => ({
+    ...item,
+    rawScore: normalizeScore(item.rawScore),
+    finalScore: normalizeScore(item.finalScore)
+  }));
+}
+
+function normalizeSettlement(settlement) {
+  if (!settlement) return null;
+  return {
+    ...settlement,
+    multiplier: normalizeScore(settlement.multiplier),
+    finalScores: normalizeFinalScores(settlement.finalScores)
+  };
+}
+
+function normalizeTableScores(table) {
+  if (!table) return null;
+  return {
+    ...table,
+    players: (table.players || []).map((player) => ({
+      ...player,
+      score: normalizeScore(player.score)
+    })),
+    settlement: normalizeSettlement(table.settlement),
+    records: (table.records || []).map((record) => ({
+      ...record,
+      multiplier: record.multiplier ? normalizeScore(record.multiplier) : record.multiplier,
+      finalScores: normalizeFinalScores(record.finalScores)
+    }))
+  };
 }
 
 function findMyPlayer(table) {
@@ -301,12 +335,13 @@ async function normalizeTable(table) {
     return {
       ...player,
       id: player.id || player._id || `${id}_player_${index}`,
+      score: normalizeScore(player.score),
       avatarUrl: fallbackUrl || await resolveCloudAvatarUrl(avatarFileId, ''),
       avatarFileId,
       avatarColor: player.avatarColor || avatarColors[index % avatarColors.length]
     };
   }));
-  return {
+  return normalizeTableScores({
     ...table,
     id,
     players,
@@ -319,21 +354,23 @@ async function normalizeTable(table) {
       ...item,
       id: item.id || `${id}_notice_${index}`
     }))
-  };
+  });
 }
 
 async function listTablesLocal() {
-  return clone(readTables()).sort((left, right) => right.createdAt - left.createdAt);
+  return clone(readTables())
+    .map((table) => normalizeTableScores(table))
+    .sort((left, right) => right.createdAt - left.createdAt);
 }
 
 async function getTableLocal(tableId) {
   const table = readTables().find((item) => item.id === tableId);
-  return table ? clone(table) : null;
+  return table ? normalizeTableScores(clone(table)) : null;
 }
 
 async function getTableByShareCodeLocal(shareCode) {
   const table = readTables().find((item) => item.shareCode === shareCode);
-  return table ? clone(table) : null;
+  return table ? normalizeTableScores(clone(table)) : null;
 }
 
 async function createTableLocal(payload) {
@@ -516,12 +553,13 @@ async function toggleMutedLocal(tableId) {
 
 function buildSettlement(table, multiplier) {
   const settledAt = Date.now();
+  const settledMultiplier = normalizeScore(multiplier);
   return {
-    multiplier,
+    multiplier: settledMultiplier,
     settledAt,
     finalScores: (table.players || []).map((player) => {
-      const rawScore = Number(player.score) || 0;
-      const finalScore = rawScore * multiplier;
+      const rawScore = normalizeScore(player.score);
+      const finalScore = normalizeScore(rawScore * settledMultiplier);
       return {
         playerId: player.id,
         name: player.name,
@@ -545,7 +583,7 @@ function applySettlement(table, multiplier) {
   table.records.unshift({
     id: makeId('record'),
     type: 'settlement',
-    multiplier,
+    multiplier: settlement.multiplier,
     finalScores: settlement.finalScores,
     createdAt: settlement.settledAt,
     revoked: false

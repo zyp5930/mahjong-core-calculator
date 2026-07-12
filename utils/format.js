@@ -30,9 +30,15 @@ function makeShareCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function normalizeScore(value) {
+  const number = Number(value) || 0;
+  return Number(number.toFixed(10));
+}
+
 module.exports = {
   formatTime,
   formatDuration,
+  normalizeScore,
   makeId,
   makeShareCode
 };

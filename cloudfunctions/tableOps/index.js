@@ -16,6 +16,28 @@ function makeShareCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function normalizeScore(value) {
+  const number = Number(value) || 0;
+  return Number(number.toFixed(10));
+}
+
+function normalizeFinalScores(finalScores) {
+  return (finalScores || []).map((item) => ({
+    ...item,
+    rawScore: normalizeScore(item.rawScore),
+    finalScore: normalizeScore(item.finalScore)
+  }));
+}
+
+function normalizeSettlement(settlement) {
+  if (!settlement) return null;
+  return {
+    ...settlement,
+    multiplier: normalizeScore(settlement.multiplier),
+    finalScores: normalizeFinalScores(settlement.finalScores)
+  };
+}
+
 function ok(data) {
   return { ok: true, data };
 }
@@ -236,7 +258,7 @@ async function updateTable(tableId, table) {
     name: String(player.name || '').trim() || `玩家${index + 1}`,
     avatarUrl: '',
     avatarFileId: player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : ''),
-    score: Number(player.score) || 0,
+    score: normalizeScore(player.score),
     isOwner: !!player.isOwner,
     avatarColor: player.avatarColor || avatarColors[index % avatarColors.length],
     joinedAt: player.joinedAt || Date.now()
@@ -244,8 +266,8 @@ async function updateTable(tableId, table) {
   const records = (table.records || []).map((record) => ({
     id: record.id || makeId('record'),
     type: record.type || 'score',
-    multiplier: Number(record.multiplier) || 0,
-    finalScores: record.finalScores || [],
+    multiplier: normalizeScore(record.multiplier),
+    finalScores: normalizeFinalScores(record.finalScores),
     fromPlayerId: record.fromPlayerId || '',
     fromPlayerName: record.fromPlayerName || '',
     toPlayerId: record.toPlayerId || '',
@@ -267,7 +289,7 @@ async function updateTable(tableId, table) {
     muted: !!table.muted,
     participantOpenids: table.participantOpenids || [],
     players,
-    settlement: table.settlement || null,
+    settlement: normalizeSettlement(table.settlement),
     records,
     notifications: (table.notifications || []).map((item) => ({
       id: item.id || makeId('notice'),
@@ -521,17 +543,18 @@ async function endTable(event, openid) {
   if (table.status !== 'active') throw new Error('牌局已结束');
   const multiplier = Number(event.multiplier);
   if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
+  const settledMultiplier = normalizeScore(multiplier);
   const settledAt = Date.now();
   const settlement = {
-    multiplier,
+    multiplier: settledMultiplier,
     settledAt,
     finalScores: (table.players || []).map((player) => {
-      const rawScore = Number(player.score) || 0;
+      const rawScore = normalizeScore(player.score);
       return {
         playerId: player.id,
         name: player.name,
         rawScore,
-        finalScore: rawScore * multiplier
+        finalScore: normalizeScore(rawScore * settledMultiplier)
       };
     })
   };
@@ -548,7 +571,7 @@ async function endTable(event, openid) {
   table.records.unshift({
     id: makeId('record'),
     type: 'settlement',
-    multiplier,
+    multiplier: settlement.multiplier,
     finalScores: settlement.finalScores,
     createdAt: settledAt,
     revoked: false
