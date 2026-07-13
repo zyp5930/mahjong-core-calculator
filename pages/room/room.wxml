@@ -55,6 +55,17 @@
 
   <view class="ended-mask" wx:if="{{table.status === 'ended'}}">牌局已结束，仅可查看</view>
 
+  <view class="next-round-panel" wx:if="{{canStartNextRound}}">
+    <view class="next-round-text">
+      <text class="next-round-title">{{table.nextTableId ? '下一局已开启' : '继续本组对局'}}</text>
+      <text class="next-round-subtitle">同组玩家会自动带入下一局</text>
+    </view>
+    <view class="next-round-actions">
+      <button wx:if="{{canSettleGroup}}" class="settle-group-btn" bindtap="openSettlementInput" data-mode="group">结算所有</button>
+      <button bindtap="startNextRound">{{table.nextTableId ? '进入下一局' : '开启下一局'}}</button>
+    </view>
+  </view>
+
   <view class="notice-stack" wx:if="{{noticeToasts.length}}">
     <view class="notice-toast" wx:for="{{noticeToasts}}" wx:key="id">
       <text class="notice-text">{{item.text}}</text>
@@ -106,14 +117,14 @@
 
   <view class="sheet-mask" wx:if="{{settlementVisible}}" bindtap="closeSettlement"></view>
   <view class="settlement-sheet" wx:if="{{settlementVisible}}">
-    <view class="settlement-title">结束牌局</view>
-    <view class="settlement-subtitle">请输入倍率后结算最终积分</view>
+    <view class="settlement-title">{{settlementTitle}}</view>
+    <view class="settlement-subtitle">{{settlementSubtitle}}</view>
     <view class="settlement-input-row">
       <input type="digit" value="{{endInputValue}}" bindinput="onEndInput" placeholder="例如 0.3" />
     </view>
     <view class="settlement-actions">
       <button bindtap="closeSettlement">取消</button>
-      <button class="confirm" bindtap="confirmEndTable">结算</button>
+      <button class="confirm" bindtap="confirmEndTable">{{settlementConfirmText}}</button>
     </view>
   </view>
 
@@ -123,6 +134,20 @@
     <view class="settlement-row" wx:for="{{finalScores}}" wx:key="playerId">
       <text>{{item.name}}</text>
       <text>{{item.rawScore}} × {{settlementMultiplier}} = {{item.finalScore}}</text>
+    </view>
+  </view>
+
+  <view class="settlement-panel group-settlement-panel" wx:if="{{groupSettlement && groupSettlement.finalScores.length}}">
+    <view class="settlement-panel-title">所有对局结算</view>
+    <view class="settlement-panel-meta">共 {{groupSettlement.tableCount}} 局</view>
+    <view class="group-settlement-row" wx:for="{{groupSettlement.finalScores}}" wx:key="groupPlayerId">
+      <view class="group-score-main">
+        <text class="group-score-name">{{item.name}}</text>
+        <text class="{{item.totalScore >= 0 ? 'group-score-win' : 'group-score-lose'}}">{{item.totalScore}}</text>
+      </view>
+      <view class="round-score-list">
+        <text wx:for="{{item.roundScores}}" wx:for-item="round" wx:key="tableId">第{{round.roundNo}}局 {{round.score}}</text>
+      </view>
     </view>
   </view>
 

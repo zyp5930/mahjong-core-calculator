@@ -29,12 +29,31 @@ function normalizeFinalScores(finalScores) {
   }));
 }
 
+function normalizeGroupFinalScores(finalScores) {
+  return (finalScores || []).map((item) => ({
+    ...item,
+    totalScore: normalizeScore(item.totalScore),
+    roundScores: (item.roundScores || []).map((round) => ({
+      ...round,
+      score: normalizeScore(round.score)
+    }))
+  }));
+}
+
 function normalizeSettlement(settlement) {
   if (!settlement) return null;
   return {
     ...settlement,
     multiplier: normalizeScore(settlement.multiplier),
     finalScores: normalizeFinalScores(settlement.finalScores)
+  };
+}
+
+function normalizeGroupSettlement(settlement) {
+  if (!settlement) return null;
+  return {
+    ...settlement,
+    finalScores: normalizeGroupFinalScores(settlement.finalScores)
   };
 }
 
@@ -254,6 +273,7 @@ async function attachAvatarUrls(table, openid, options = {}) {
 async function updateTable(tableId, table) {
   const players = (table.players || []).map((player, index) => ({
     id: player.id,
+    groupPlayerId: player.groupPlayerId || player.id,
     openid: player.openid || '',
     name: String(player.name || '').trim() || `玩家${index + 1}`,
     avatarUrl: '',
@@ -283,6 +303,12 @@ async function updateTable(tableId, table) {
     shareCode: table.shareCode,
     ownerOpenid: table.ownerOpenid,
     status: table.status,
+    groupId: table.groupId || table._id || table.id || '',
+    roundNo: Number(table.roundNo) || 1,
+    previousTableId: table.previousTableId || '',
+    nextTableId: table.nextTableId || '',
+    groupStatus: table.groupStatus || (table.groupSettlement ? 'settled' : 'active'),
+    groupSettlement: normalizeGroupSettlement(table.groupSettlement),
     createdAt: table.createdAt,
     updatedAt: table.updatedAt || table.createdAt || Date.now(),
     endedAt: table.endedAt || null,
@@ -348,6 +374,9 @@ async function createTable(event, openid) {
   const names = (event.playerNames || []).filter((item) => String(item || '').trim());
   const playerNames = names.length ? names : ['我', '玩家2', '玩家3', '玩家4'];
   const players = playerNames.map((name, index) => normalizePlayer(name, index, openid, index === 0));
+  players.forEach((player) => {
+    player.groupPlayerId = player.groupPlayerId || player.id;
+  });
   if (players[0] && event.ownerAvatarUrl) {
     players[0].avatarFileId = event.ownerAvatarUrl;
     players[0].avatarUrl = '';
@@ -357,6 +386,12 @@ async function createTable(event, openid) {
     shareCode: makeShareCode(),
     ownerOpenid: openid,
     status: 'active',
+    groupId: makeId('group'),
+    roundNo: 1,
+    previousTableId: '',
+    nextTableId: '',
+    groupStatus: 'active',
+    groupSettlement: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     endedAt: null,
@@ -409,6 +444,7 @@ async function joinTable(event, openid) {
     table.players.push(player);
   }
 
+  player.groupPlayerId = player.groupPlayerId || player.id;
   player.openid = openid;
   player.name = String(event.name || player.name).trim() || player.name;
   player.avatarFileId = event.avatarFileId || event.avatarUrl || player.avatarFileId || '';
@@ -536,30 +572,40 @@ async function toggleMuted(event) {
   return updateTable(event.tableId, table);
 }
 
-async function endTable(event, openid) {
-  const table = await getTableById(event.tableId);
-  if (!table) throw new Error('牌局不存在');
-  if (table.ownerOpenid !== openid) throw new Error('只有桌主可以结束牌局');
-  if (table.status !== 'active') throw new Error('牌局已结束');
-  const multiplier = Number(event.multiplier);
-  if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
+function getGroupId(table) {
+  return table.groupId || table._id || table.id;
+}
+
+function normalizeGroupPlayers(table) {
+  table.players = (table.players || []).map((player) => ({
+    ...player,
+    groupPlayerId: player.groupPlayerId || player.id
+  }));
+}
+
+function buildSettlement(table, multiplier) {
   const settledMultiplier = normalizeScore(multiplier);
   const settledAt = Date.now();
-  const settlement = {
+  return {
     multiplier: settledMultiplier,
     settledAt,
     finalScores: (table.players || []).map((player) => {
       const rawScore = normalizeScore(player.score);
       return {
         playerId: player.id,
+        groupPlayerId: player.groupPlayerId || player.id,
         name: player.name,
         rawScore,
         finalScore: normalizeScore(rawScore * settledMultiplier)
       };
     })
   };
+}
+
+function applySettlement(table, multiplier) {
+  const settlement = buildSettlement(table, multiplier);
   table.status = 'ended';
-  table.endedAt = settledAt;
+  table.endedAt = settlement.settledAt;
   table.players = (table.players || []).map((player) => {
     const finalScore = settlement.finalScores.find((item) => item.playerId === player.id);
     return {
@@ -573,11 +619,155 @@ async function endTable(event, openid) {
     type: 'settlement',
     multiplier: settlement.multiplier,
     finalScores: settlement.finalScores,
-    createdAt: settledAt,
+    createdAt: settlement.settledAt,
     revoked: false
   });
   table.settlement = settlement;
+}
+
+async function getGroupTables(table) {
+  const groupId = getGroupId(table);
+  const { data } = await db.collection('tables')
+    .where({ groupId })
+    .limit(100)
+    .get();
+  const tables = data.length ? data : [table];
+  return tables.sort((left, right) => (
+    (Number(left.roundNo) || 1) - (Number(right.roundNo) || 1) ||
+    (Number(left.createdAt) || 0) - (Number(right.createdAt) || 0)
+  ));
+}
+
+function buildNextTable(table) {
+  const now = Date.now();
+  const players = (table.players || []).map((player, index) => ({
+    ...player,
+    id: makeId('player'),
+    groupPlayerId: player.groupPlayerId || player.id,
+    score: 0,
+    isOwner: player.openid === table.ownerOpenid || !!player.isOwner,
+    avatarColor: player.avatarColor || avatarColors[index % avatarColors.length],
+    joinedAt: player.joinedAt || now
+  }));
+  return {
+    name: table.name,
+    shareCode: makeShareCode(),
+    ownerOpenid: table.ownerOpenid,
+    status: 'active',
+    groupId: getGroupId(table),
+    roundNo: (Number(table.roundNo) || 1) + 1,
+    previousTableId: table._id || table.id,
+    nextTableId: '',
+    groupStatus: 'active',
+    groupSettlement: null,
+    createdAt: now,
+    updatedAt: now,
+    endedAt: null,
+    muted: !!table.muted,
+    participantOpenids: Array.from(new Set([
+      ...(table.participantOpenids || []),
+      ...players.map((player) => player.openid).filter(Boolean)
+    ])),
+    players,
+    records: [],
+    notifications: [],
+    settlement: null
+  };
+}
+
+function buildGroupSettlement(tables) {
+  const endedTables = tables.filter((table) => table.status === 'ended' && table.settlement);
+  const scoreMap = {};
+  endedTables.forEach((table) => {
+    const playerMap = (table.players || []).reduce((map, player) => {
+      map[player.id] = player;
+      return map;
+    }, {});
+    (table.settlement.finalScores || []).forEach((score) => {
+      const player = playerMap[score.playerId] || {};
+      const groupPlayerId = score.groupPlayerId || player.groupPlayerId || player.openid || score.playerId;
+      if (!scoreMap[groupPlayerId]) {
+        scoreMap[groupPlayerId] = {
+          groupPlayerId,
+          name: score.name || player.name || '玩家',
+          totalScore: 0,
+          roundScores: []
+        };
+      }
+      const finalScore = normalizeScore(score.finalScore);
+      scoreMap[groupPlayerId].name = score.name || player.name || scoreMap[groupPlayerId].name;
+      scoreMap[groupPlayerId].totalScore = normalizeScore(scoreMap[groupPlayerId].totalScore + finalScore);
+      scoreMap[groupPlayerId].roundScores.push({
+        tableId: table._id || table.id,
+        roundNo: Number(table.roundNo) || 1,
+        score: finalScore
+      });
+    });
+  });
+  return {
+    settledAt: Date.now(),
+    tableCount: endedTables.length,
+    finalScores: Object.values(scoreMap).sort((left, right) => right.totalScore - left.totalScore)
+  };
+}
+
+async function endTable(event, openid) {
+  const table = await getTableById(event.tableId);
+  if (!table) throw new Error('牌局不存在');
+  if (table.ownerOpenid !== openid) throw new Error('只有桌主可以结束牌局');
+  if (table.status !== 'active') throw new Error('牌局已结束');
+  const multiplier = Number(event.multiplier);
+  if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
+  normalizeGroupPlayers(table);
+  applySettlement(table, multiplier);
   return updateTable(event.tableId, table);
+}
+
+async function startNextTable(event, openid) {
+  const table = await getTableById(event.tableId);
+  if (!table) throw new Error('牌局不存在');
+  if (table.ownerOpenid !== openid) throw new Error('只有桌主可以开启下一局');
+  if (table.status !== 'ended') throw new Error('请先结束本次对局');
+  if (table.groupStatus === 'settled' || table.groupSettlement) throw new Error('所有对局已结算，不能开启下一局');
+  if (table.nextTableId) {
+    const existingNext = await getTableById(table.nextTableId);
+    if (existingNext) return attachAvatarUrls(existingNext, openid, { force: true });
+  }
+  normalizeGroupPlayers(table);
+  const nextTable = buildNextTable(table);
+  const result = await db.collection('tables').add({ data: cleanForDb(nextTable) });
+  table.groupId = getGroupId(table);
+  table.nextTableId = result._id;
+  table.updatedAt = Date.now();
+  await updateTable(event.tableId, table);
+  return attachAvatarUrls(await getTableById(result._id), openid, { force: true });
+}
+
+async function settleGroup(event, openid) {
+  const table = await getTableById(event.tableId);
+  if (!table) throw new Error('牌局不存在');
+  if (table.ownerOpenid !== openid) throw new Error('只有桌主可以结算所有对局');
+  if (table.groupStatus === 'settled' && table.groupSettlement) {
+    return attachAvatarUrls(table, openid, { force: true });
+  }
+  if (table.status === 'active') {
+    const multiplier = Number(event.multiplier);
+    if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
+    normalizeGroupPlayers(table);
+    applySettlement(table, multiplier);
+    await updateTable(event.tableId, table);
+  }
+  const groupTables = await getGroupTables({ ...table, groupId: getGroupId(table) });
+  if (groupTables.some((item) => item.status !== 'ended')) throw new Error('还有未结束的对局');
+  const groupSettlement = buildGroupSettlement(groupTables);
+  await Promise.all(groupTables.map((item) => updateTable(item._id, {
+    ...item,
+    groupId: getGroupId(table),
+    groupStatus: 'settled',
+    groupSettlement,
+    updatedAt: Date.now()
+  })));
+  return attachAvatarUrls(await getTableById(event.tableId), openid, { force: true });
 }
 
 async function deleteTable(event, openid) {
@@ -621,6 +811,10 @@ exports.main = async (event) => {
         return ok(await toggleMuted(event));
       case 'endTable':
         return ok(await endTable(event, OPENID));
+      case 'startNextTable':
+        return ok(await startNextTable(event, OPENID));
+      case 'settleGroup':
+        return ok(await settleGroup(event, OPENID));
       case 'deleteTable':
         return ok(await deleteTable(event, OPENID));
       default:

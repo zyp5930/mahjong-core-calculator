@@ -104,6 +104,17 @@ function normalizeFinalScores(finalScores) {
   }));
 }
 
+function normalizeGroupFinalScores(finalScores) {
+  return (finalScores || []).map((item) => ({
+    ...item,
+    totalScore: normalizeScore(item.totalScore),
+    roundScores: (item.roundScores || []).map((round) => ({
+      ...round,
+      score: normalizeScore(round.score)
+    }))
+  }));
+}
+
 function normalizeSettlement(settlement) {
   if (!settlement) return null;
   return {
@@ -113,12 +124,29 @@ function normalizeSettlement(settlement) {
   };
 }
 
+function normalizeGroupSettlement(settlement) {
+  if (!settlement) return null;
+  return {
+    ...settlement,
+    finalScores: normalizeGroupFinalScores(settlement.finalScores)
+  };
+}
+
 function normalizeTableScores(table) {
   if (!table) return null;
+  const id = table.id || table._id || '';
   return {
     ...table,
+    id,
+    groupId: table.groupId || id,
+    roundNo: Number(table.roundNo) || 1,
+    previousTableId: table.previousTableId || '',
+    nextTableId: table.nextTableId || '',
+    groupStatus: table.groupStatus || (table.groupSettlement ? 'settled' : 'active'),
+    groupSettlement: normalizeGroupSettlement(table.groupSettlement),
     players: (table.players || []).map((player) => ({
       ...player,
+      groupPlayerId: player.groupPlayerId || player.id,
       score: normalizeScore(player.score)
     })),
     settlement: normalizeSettlement(table.settlement),
@@ -304,7 +332,11 @@ async function callTableOp(action, data) {
       payload,
       result
     });
-    throw new Error((result && result.message) || '云端操作失败');
+    const message = (result && result.message) || '云端操作失败';
+    if (message === '未知操作') {
+      throw new Error('云函数 tableOps 未更新，请重新上传部署云函数');
+    }
+    throw new Error(message);
   }
   return result.data;
 }
@@ -387,6 +419,12 @@ async function createTableLocal(payload) {
     shareCode: makeShareCode(),
     ownerOpenid: getLocalOpenid(),
     status: 'active',
+    groupId: makeId('group'),
+    roundNo: 1,
+    previousTableId: '',
+    nextTableId: '',
+    groupStatus: 'active',
+    groupSettlement: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     endedAt: null,
@@ -396,6 +434,10 @@ async function createTableLocal(payload) {
     notifications: [],
     settlement: null
   };
+  table.players = table.players.map((player) => ({
+    ...player,
+    groupPlayerId: player.groupPlayerId || player.id
+  }));
   const tables = readTables();
   tables.unshift(table);
   writeTables(tables);
@@ -418,6 +460,7 @@ async function joinTableLocal(tableId, playerId, name, avatarUrl) {
     player = normalizePlayer(name, table.players.length, false);
     table.players.push(player);
   }
+  player.groupPlayerId = player.groupPlayerId || player.id;
   player.openid = openid;
   player.name = String(name || player.name).trim() || player.name;
   player.avatarUrl = avatarUrl || player.avatarUrl || '';
@@ -562,6 +605,7 @@ function buildSettlement(table, multiplier) {
       const finalScore = normalizeScore(rawScore * settledMultiplier);
       return {
         playerId: player.id,
+        groupPlayerId: player.groupPlayerId || player.id,
         name: player.name,
         rawScore,
         finalScore
@@ -591,6 +635,98 @@ function applySettlement(table, multiplier) {
   table.settlement = settlement;
 }
 
+function getGroupId(table) {
+  return table.groupId || table.id;
+}
+
+function getGroupTables(tables, table) {
+  const groupId = getGroupId(table);
+  return tables
+    .filter((item) => (item.groupId || item.id) === groupId)
+    .sort((left, right) => (Number(left.roundNo) || 1) - (Number(right.roundNo) || 1) || left.createdAt - right.createdAt);
+}
+
+function normalizeGroupPlayers(table) {
+  table.players = (table.players || []).map((player) => ({
+    ...player,
+    groupPlayerId: player.groupPlayerId || player.id
+  }));
+}
+
+function buildNextTable(table) {
+  const now = Date.now();
+  const players = (table.players || []).map((player, index) => ({
+    ...player,
+    id: makeId('player'),
+    groupPlayerId: player.groupPlayerId || player.id,
+    score: 0,
+    isOwner: player.openid === table.ownerOpenid || !!player.isOwner,
+    avatarColor: player.avatarColor || avatarColors[index % avatarColors.length],
+    joinedAt: player.joinedAt || now
+  }));
+  return {
+    id: makeId('table'),
+    name: table.name,
+    shareCode: makeShareCode(),
+    ownerOpenid: table.ownerOpenid,
+    status: 'active',
+    groupId: getGroupId(table),
+    roundNo: (Number(table.roundNo) || 1) + 1,
+    previousTableId: table.id,
+    nextTableId: '',
+    groupStatus: 'active',
+    groupSettlement: null,
+    createdAt: now,
+    updatedAt: now,
+    endedAt: null,
+    muted: !!table.muted,
+    participantOpenids: Array.from(new Set([
+      ...(table.participantOpenids || []),
+      ...players.map((player) => player.openid).filter(Boolean)
+    ])),
+    players,
+    records: [],
+    notifications: [],
+    settlement: null
+  };
+}
+
+function buildGroupSettlement(tables) {
+  const endedTables = tables.filter((table) => table.status === 'ended' && table.settlement);
+  const scoreMap = {};
+  endedTables.forEach((table) => {
+    const playerMap = (table.players || []).reduce((map, player) => {
+      map[player.id] = player;
+      return map;
+    }, {});
+    (table.settlement.finalScores || []).forEach((score) => {
+      const player = playerMap[score.playerId] || {};
+      const groupPlayerId = score.groupPlayerId || player.groupPlayerId || player.openid || score.playerId;
+      if (!scoreMap[groupPlayerId]) {
+        scoreMap[groupPlayerId] = {
+          groupPlayerId,
+          name: score.name || player.name || '玩家',
+          totalScore: 0,
+          roundScores: []
+        };
+      }
+      const finalScore = normalizeScore(score.finalScore);
+      scoreMap[groupPlayerId].name = score.name || player.name || scoreMap[groupPlayerId].name;
+      scoreMap[groupPlayerId].totalScore = normalizeScore(scoreMap[groupPlayerId].totalScore + finalScore);
+      scoreMap[groupPlayerId].roundScores.push({
+        tableId: table.id,
+        roundNo: Number(table.roundNo) || 1,
+        score: finalScore
+      });
+    });
+  });
+  return {
+    settledAt: Date.now(),
+    tableCount: endedTables.length,
+    finalScores: Object.values(scoreMap).sort((left, right) => right.totalScore - left.totalScore)
+  };
+}
+
 async function endTableLocal(tableId, multiplier) {
   const tables = readTables();
   const index = getTableIndex(tables, tableId);
@@ -601,11 +737,62 @@ async function endTableLocal(tableId, multiplier) {
   if (table.status !== 'active') throw new Error('牌局已结束');
   const value = Number(multiplier);
   if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
+  normalizeGroupPlayers(table);
   table.status = 'ended';
   table.endedAt = Date.now();
   applySettlement(table, value);
   writeTables(tables);
   return clone(table);
+}
+
+async function startNextTableLocal(tableId) {
+  const tables = readTables();
+  const index = getTableIndex(tables, tableId);
+  if (index < 0) throw new Error('牌局不存在');
+  const table = tables[index];
+  if (table.ownerOpenid !== getLocalOpenid()) throw new Error('只有桌主可以开启下一局');
+  if (table.status !== 'ended') throw new Error('请先结束本次对局');
+  if (table.groupStatus === 'settled' || table.groupSettlement) throw new Error('所有对局已结算，不能开启下一局');
+  if (table.nextTableId) {
+    const existingNext = tables.find((item) => item.id === table.nextTableId);
+    if (existingNext) return clone(existingNext);
+  }
+  normalizeGroupPlayers(table);
+  const nextTable = buildNextTable(table);
+  table.groupId = getGroupId(table);
+  table.nextTableId = nextTable.id;
+  table.updatedAt = Date.now();
+  tables.unshift(nextTable);
+  writeTables(tables);
+  return clone(nextTable);
+}
+
+async function settleGroupLocal(tableId, multiplier) {
+  const tables = readTables();
+  const index = getTableIndex(tables, tableId);
+  if (index < 0) throw new Error('牌局不存在');
+  const table = tables[index];
+  if (table.ownerOpenid !== getLocalOpenid()) throw new Error('只有桌主可以结算所有对局');
+  if (table.groupStatus === 'settled' && table.groupSettlement) return clone(table);
+  if (table.status === 'active') {
+    const value = Number(multiplier);
+    if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
+    normalizeGroupPlayers(table);
+    table.status = 'ended';
+    table.endedAt = Date.now();
+    applySettlement(table, value);
+  }
+  const groupTables = getGroupTables(tables, table);
+  if (groupTables.some((item) => item.status !== 'ended')) throw new Error('还有未结束的对局');
+  const groupSettlement = buildGroupSettlement(groupTables);
+  groupTables.forEach((item) => {
+    item.groupId = getGroupId(table);
+    item.groupStatus = 'settled';
+    item.groupSettlement = groupSettlement;
+    item.updatedAt = Date.now();
+  });
+  writeTables(tables);
+  return clone(tables[index]);
 }
 
 async function deleteTableLocal(tableId) {
@@ -730,6 +917,20 @@ async function endTable(tableId, multiplier) {
   );
 }
 
+async function startNextTable(tableId) {
+  return withCloudFallback(
+    async () => normalizeTable(await callTableOp('startNextTable', { tableId })),
+    () => startNextTableLocal(tableId)
+  );
+}
+
+async function settleGroup(tableId, multiplier) {
+  return withCloudFallback(
+    async () => normalizeTable(await callTableOp('settleGroup', { tableId, multiplier })),
+    () => settleGroupLocal(tableId, multiplier)
+  );
+}
+
 async function deleteTable(tableId) {
   return withCloudFallback(
     () => callTableOp('deleteTable', { tableId }),
@@ -748,6 +949,8 @@ module.exports = {
   undoLastGive,
   toggleMuted,
   endTable,
+  startNextTable,
+  settleGroup,
   deleteTable,
   findMyPlayer,
   sortPlayers,

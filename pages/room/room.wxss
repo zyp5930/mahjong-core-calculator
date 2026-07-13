@@ -299,6 +299,67 @@
   box-shadow: 0 14rpx 34rpx rgba(96, 69, 34, 0.09);
 }
 
+.next-round-panel {
+  margin: 22rpx 24rpx 0;
+  padding: 22rpx 24rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 24rpx;
+  background: #fffdf8;
+  box-shadow: 0 14rpx 34rpx rgba(96, 69, 34, 0.09);
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.next-round-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.next-round-title {
+  color: #1f2a24;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.next-round-subtitle {
+  color: #7d8982;
+  font-size: 24rpx;
+}
+
+.next-round-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12rpx;
+}
+
+.next-round-panel button {
+  width: 188rpx;
+  height: 72rpx;
+  margin: 0;
+  padding: 0;
+  border-radius: 18rpx;
+  background: #12855a;
+  color: #ffffff;
+  font-size: 26rpx;
+  line-height: 72rpx;
+  flex: 0 0 auto;
+}
+
+.next-round-panel .settle-group-btn {
+  width: 168rpx;
+  border: 1rpx solid #ded7ca;
+  background: #fffdf8;
+  color: #526159;
+}
+
+.next-round-panel button::after {
+  border: 0;
+}
+
 .notice-stack {
   position: fixed;
   left: 32rpx;
@@ -520,6 +581,65 @@
   gap: 20rpx;
   color: #526159;
   font-size: 26rpx;
+}
+
+.group-settlement-panel {
+  border-color: #d8ebe2;
+}
+
+.group-settlement-row {
+  margin-top: 20rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid #f0e6d6;
+}
+
+.group-score-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.group-score-name {
+  flex: 1;
+  min-width: 0;
+  color: #1f2a24;
+  font-size: 28rpx;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-score-win,
+.group-score-lose {
+  min-width: 120rpx;
+  text-align: right;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.group-score-win {
+  color: #c84636;
+}
+
+.group-score-lose {
+  color: #526159;
+}
+
+.round-score-list {
+  margin-top: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.round-score-list text {
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: #f4f7f5;
+  color: #68746d;
+  font-size: 22rpx;
 }
 
 .bottom-actions {

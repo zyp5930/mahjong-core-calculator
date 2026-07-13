@@ -2,6 +2,7 @@ const store = require('../../services/store');
 
 const NOTICE_RECENT_WINDOW = 2 * 60 * 1000;
 const NOTICE_TOAST_DURATION = 3000;
+const TABLE_POLL_INTERVAL = 3000;
 
 Page({
   data: {
@@ -12,6 +13,10 @@ Page({
     canGive: false,
     keypadVisible: false,
     settlementVisible: false,
+    settlementMode: 'table',
+    settlementTitle: '结束牌局',
+    settlementSubtitle: '请输入倍率后结算最终积分',
+    settlementConfirmText: '结算',
     targetPlayer: null,
     inputValue: '',
     keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '取消', '0', '确认'],
@@ -26,7 +31,10 @@ Page({
     noticeToasts: [],
     settlementPlayers: [],
     settlementMultiplier: '',
-    finalScores: []
+    finalScores: [],
+    groupSettlement: null,
+    canStartNextRound: false,
+    canSettleGroup: false
   },
 
   async onLoad(options) {
@@ -44,6 +52,8 @@ Page({
     if (tableId) {
       this.setData({ tableId });
       this.loadTable();
+      this.startWatching();
+      this.startPolling();
       return;
     }
     if (shareCode) {
@@ -57,16 +67,19 @@ Page({
     this.setData({ mode: store.getStoredMode() });
     if (this.data.tableId) this.loadTable();
     this.startWatching();
+    this.startPolling();
   },
 
   onHide() {
     this.stopWatching();
+    this.stopPolling();
     this.clearNoticeToastTimer();
     this.setData({ noticeToasts: [] });
   },
 
   onUnload() {
     this.stopWatching();
+    this.stopPolling();
     this.clearNoticeToastTimer();
     this.setData({ noticeToasts: [] });
   },
@@ -96,15 +109,22 @@ Page({
     });
     this.loadTable();
     this.startWatching();
+    this.startPolling();
   },
 
   async loadTable() {
-    const table = await store.getTable(this.data.tableId);
-    if (!table) {
-      wx.showToast({ title: '牌局不存在', icon: 'none' });
-      return;
+    try {
+      const table = await store.getTable(this.data.tableId);
+      if (!table) {
+        wx.showToast({ title: '牌局不存在', icon: 'none' });
+        return;
+      }
+      this.applyTable(table);
+    } catch (error) {
+      if (!this.tablePollTimer) {
+        wx.showToast({ title: error.message || '刷新失败', icon: 'none' });
+      }
     }
-    this.applyTable(table);
   },
 
   applyTable(table) {
@@ -114,6 +134,8 @@ Page({
       ? players.find((player) => player.id === this.data.targetPlayer.id) || this.data.targetPlayer
       : null;
     const settlement = table.settlement || null;
+    const groupSettlement = table.groupSettlement || null;
+    const isOwner = !!myPlayer && table.ownerOpenid === myPlayer.openid;
     this.setData({
       table,
       players,
@@ -124,6 +146,19 @@ Page({
       settlementPlayers: settlement ? this.buildSettlementPlayers(settlement, table.players) : [],
       settlementMultiplier: settlement ? settlement.multiplier : '',
       finalScores: settlement ? settlement.finalScores || [] : [],
+      groupSettlement,
+      canStartNextRound: !!(
+        table.status === 'ended' &&
+        !groupSettlement &&
+        table.groupStatus !== 'settled' &&
+        (table.nextTableId || isOwner)
+      ),
+      canSettleGroup: !!(
+        table.status === 'ended' &&
+        isOwner &&
+        !groupSettlement &&
+        table.groupStatus !== 'settled'
+      ),
       notices: (table.notifications || []).filter((item) => !myPlayer || !item.targetOpenid || item.targetOpenid === myPlayer.openid)
     });
     this.showPendingNotice();
@@ -131,6 +166,24 @@ Page({
       this.setData({ pendingAutoInvite: false });
       this.openInvite();
     }
+    this.redirectToNextTableIfNeeded(table);
+  },
+
+  redirectToNextTableIfNeeded(table) {
+    if (!table || !table.nextTableId) return;
+    if (this.redirectingToNextTable) return;
+    if (table.nextTableId === this.data.tableId) return;
+    if (table.status !== 'ended') return;
+    if (table.groupStatus === 'settled' || table.groupSettlement) return;
+    this.redirectingToNextTable = true;
+    this.stopWatching();
+    wx.redirectTo({
+      url: `/pages/room/room?id=${table.nextTableId}`,
+      fail: () => {
+        this.redirectingToNextTable = false;
+        this.startWatching();
+      }
+    });
   },
 
   buildPlayers(players) {
@@ -235,6 +288,22 @@ Page({
     } catch (error) {
       this.stopWatching();
     }
+  },
+
+  startPolling() {
+    this.stopPolling();
+    if (!this.data.tableId) return;
+    this.tablePollTimer = setInterval(() => {
+      if (!this.data.tableId || this.redirectingToNextTable) return;
+      this.loadTable();
+    }, TABLE_POLL_INTERVAL);
+  },
+
+  stopPolling() {
+    if (this.tablePollTimer) {
+      clearInterval(this.tablePollTimer);
+    }
+    this.tablePollTimer = null;
   },
 
   stopWatching() {
@@ -382,6 +451,19 @@ Page({
     wx.showToast({ title: '已刷新', icon: 'none' });
   },
 
+  showOperationError(error, fallbackTitle) {
+    const message = (error && error.message) || fallbackTitle || '操作失败';
+    if (message.includes('云函数 tableOps 未更新')) {
+      wx.showModal({
+        title: '云函数未更新',
+        content: '请在微信开发者工具中上传并部署 cloudfunctions/tableOps 后重试。',
+        showCancel: false
+      });
+      return;
+    }
+    wx.showToast({ title: message, icon: 'none' });
+  },
+
   showMore() {
     wx.showActionSheet({
       itemList: ['复制分享码', '编辑我的资料'],
@@ -397,8 +479,28 @@ Page({
   },
 
   openSettlementDialog() {
+    wx.showActionSheet({
+      itemList: ['结束本次对局', '结算所有对局'],
+      success: (res) => {
+        if (res.tapIndex === 0) this.openSettlementInput('table');
+        if (res.tapIndex === 1) this.openSettlementInput('group');
+      }
+    });
+  },
+
+  openSettlementInput(modeOrEvent) {
+    const mode = modeOrEvent && modeOrEvent.currentTarget
+      ? modeOrEvent.currentTarget.dataset.mode
+      : modeOrEvent;
+    const isGroupMode = mode === 'group';
     this.setData({
       settlementVisible: true,
+      settlementMode: isGroupMode ? 'group' : 'table',
+      settlementTitle: isGroupMode ? '结算所有对局' : '结束牌局',
+      settlementSubtitle: isGroupMode
+        ? '请输入倍率，先结算本局后汇总所有对局'
+        : '请输入倍率后结算最终积分',
+      settlementConfirmText: isGroupMode ? '总结算' : '结算',
       endInputValue: '0.3'
     });
   },
@@ -406,6 +508,7 @@ Page({
   closeSettlement() {
     this.setData({
       settlementVisible: false,
+      settlementMode: 'table',
       endInputValue: ''
     });
   },
@@ -423,11 +526,47 @@ Page({
       return;
     }
     try {
-      await store.endTable(this.data.tableId, multiplier);
+      const table = this.data.settlementMode === 'group'
+        ? await store.settleGroup(this.data.tableId, multiplier)
+        : await store.endTable(this.data.tableId, multiplier);
       this.closeSettlement();
-      this.loadTable();
+      if (table) {
+        this.applyTable(table);
+      } else {
+        this.loadTable();
+      }
     } catch (error) {
-      wx.showToast({ title: error.message || '结算失败', icon: 'none' });
+      this.showOperationError(error, '结算失败');
+    }
+  },
+
+  async startNextRound() {
+    const table = this.data.table || {};
+    if (table.nextTableId) {
+      this.redirectingToNextTable = true;
+      wx.redirectTo({
+        url: `/pages/room/room?id=${table.nextTableId}`,
+        fail: () => {
+          this.redirectingToNextTable = false;
+        }
+      });
+      return;
+    }
+    try {
+      this.redirectingToNextTable = true;
+      wx.showLoading({ title: '创建中' });
+      const nextTable = await store.startNextTable(this.data.tableId);
+      wx.hideLoading();
+      wx.redirectTo({
+        url: `/pages/room/room?id=${nextTable.id}`,
+        fail: () => {
+          this.redirectingToNextTable = false;
+        }
+      });
+    } catch (error) {
+      wx.hideLoading();
+      this.redirectingToNextTable = false;
+      this.showOperationError(error, '开启下一局失败');
     }
   },
 

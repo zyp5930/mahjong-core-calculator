@@ -30,26 +30,51 @@
     </navigator>
   </view>
 
-  <view class="section-title recent-title">最近牌局</view>
-  <block wx:if="{{tables.length}}">
-    <view class="table-card card" wx:for="{{tables}}" wx:key="id" bindtap="openTable" data-id="{{item.id}}" hover-class="card-press" hover-stay-time="80">
-      <view class="table-top">
-        <text class="table-name">{{item.name}}</text>
-        <text class="status {{item.status}}">{{item.statusText}}</text>
-      </view>
-      <view class="players">
-        <view class="player-chip" wx:for="{{item.players}}" wx:key="id">
-          <image wx:if="{{item.avatarUrl}}" class="avatar image-avatar" src="{{item.avatarUrl}}" mode="aspectFill"></image>
-          <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
-          <text>{{item.name}}</text>
-          <text class="{{item.score >= 0 ? 'score win' : 'score lose'}}">{{item.score}}</text>
+  <view class="section-title recent-title">最近对局</view>
+  <block wx:if="{{tableGroups.length}}">
+    <view class="group-card card" wx:for="{{tableGroups}}" wx:key="groupId">
+      <view class="group-main" bindtap="toggleGroup" data-id="{{item.groupId}}" hover-class="card-press" hover-stay-time="80">
+        <view class="table-top">
+          <view class="group-title-wrap">
+            <text class="table-name">{{item.name}}</text>
+            <text class="group-count">{{item.tableCount}}局</text>
+          </view>
+          <text class="status {{item.status}}">{{item.statusText}}</text>
+        </view>
+        <view class="group-stats">
+          <text>{{item.summaryText}}</text>
+          <text>{{item.updatedText}} 更新</text>
+        </view>
+        <view class="players">
+          <view class="player-chip" wx:for="{{item.players}}" wx:for-item="player" wx:key="id">
+            <image wx:if="{{player.avatarUrl}}" class="avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
+            <view wx:else class="avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
+            <text>{{player.name}}</text>
+            <text class="{{player.score >= 0 ? 'score win' : 'score lose'}}">{{player.score}}</text>
+          </view>
+        </view>
+        <view class="table-meta">
+          <text>{{item.createdText}} 开始</text>
+          <text class="expand-text">{{item.isExpanded ? '收起' : '展开'}}</text>
         </view>
       </view>
-      <view class="table-meta">{{item.createdText}} 开始 | {{item.durationText}}</view>
+
+      <view class="round-list" wx:if="{{item.isExpanded}}">
+        <view class="round-row" wx:for="{{item.tables}}" wx:for-item="round" wx:key="id" catchtap="openGroupTable" data-id="{{round.id}}">
+          <view class="round-main">
+            <text class="round-title">{{round.roundText}}</text>
+            <text class="round-meta">{{round.createdText}} | {{round.durationText}}</text>
+          </view>
+          <view class="round-side">
+            <text class="round-status {{round.status}}">{{round.statusText}}</text>
+            <text class="round-action">进入</text>
+          </view>
+        </view>
+      </view>
     </view>
   </block>
   <view wx:else class="empty card">
-    <view>还没有牌局</view>
+    <view>还没有对局</view>
     <view class="muted">先创建一桌，牌友就能从分享进入。</view>
   </view>
 </view>
