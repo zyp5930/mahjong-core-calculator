@@ -15,6 +15,7 @@ Page({
     name: '麻将计分桌',
     ownerName: '微信用户',
     ownerAvatarUrl: '',
+    ownerNameInputFocus: false,
     creating: false
   },
 
@@ -28,8 +29,16 @@ Page({
 
   onChooseAvatar(event) {
     this.setData({
-      ownerAvatarUrl: event.detail.avatarUrl || ''
+      ownerAvatarUrl: event.detail.avatarUrl || '',
+      ownerNameInputFocus: false
     });
+    setTimeout(() => {
+      this.setData({ ownerNameInputFocus: true });
+    }, 80);
+  },
+
+  onOwnerNameBlur() {
+    this.setData({ ownerNameInputFocus: false });
   },
 
   async createTable() {

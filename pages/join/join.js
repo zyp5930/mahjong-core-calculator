@@ -9,12 +9,32 @@ Page({
     name: '微信用户',
     avatarUrl: '',
     avatarFileId: '',
-    myPlayer: null
+    myPlayer: null,
+    nameInputFocus: false
   },
 
-  onLoad(options) {
-    this.setData({ tableId: options.id || '' });
-    this.loadTable();
+  async onLoad(options) {
+    const tableId = options.id || '';
+    const shareCode = options.shareCode || options.scene || '';
+    if (tableId) {
+      this.setData({ tableId });
+      this.loadTable();
+      return;
+    }
+    if (shareCode) {
+      const parsedShareCode = decodeURIComponent(shareCode).replace(/^shareCode=/, '');
+      this.resolveShareCode(parsedShareCode);
+    }
+  },
+
+  async resolveShareCode(shareCode) {
+    const table = await store.getTableByShareCode(shareCode);
+    if (!table) {
+      wx.showToast({ title: '分享码无效', icon: 'none' });
+      return;
+    }
+    this.setData({ tableId: table.id });
+    this.applyTable(table);
   },
 
   async loadTable() {
@@ -23,6 +43,10 @@ Page({
       wx.showToast({ title: '牌局不存在', icon: 'none' });
       return;
     }
+    this.applyTable(table);
+  },
+
+  async applyTable(table) {
     await store.ensureMe();
     const myPlayer = store.findMyPlayer(table);
     if (myPlayer) {
@@ -72,8 +96,16 @@ Page({
   onChooseAvatar(event) {
     this.setData({
       avatarUrl: event.detail.avatarUrl || '',
-      avatarFileId: ''
+      avatarFileId: '',
+      nameInputFocus: false
     });
+    setTimeout(() => {
+      this.setData({ nameInputFocus: true });
+    }, 80);
+  },
+
+  onNameBlur() {
+    this.setData({ nameInputFocus: false });
   },
 
   async bindPlayer() {

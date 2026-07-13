@@ -96,6 +96,7 @@
 .avatar-card {
   margin-top: 24rpx;
   padding: 28rpx;
+  position: relative;
 }
 
 .avatar-card text {
@@ -116,6 +117,7 @@
   align-items: center;
   gap: 20rpx;
   justify-content: flex-start;
+  width: 100%;
 }
 
 .avatar-preview,
@@ -139,6 +141,21 @@
   color: #1f2a24;
   font-size: 30rpx;
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar-hit-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border-radius: 24rpx;
+  opacity: 0;
 }
 
 .name-card text {

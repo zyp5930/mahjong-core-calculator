@@ -17,11 +17,12 @@
 
   <view class="card avatar-card">
     <text>微信头像</text>
-    <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+    <view class="avatar-picker">
       <image wx:if="{{avatarUrl}}" class="avatar-preview" src="{{avatarUrl}}" mode="aspectFill"></image>
       <view wx:else class="avatar-fallback">{{name.slice(0, 1) || '微'}}</view>
       <view class="avatar-copy">{{avatarUrl ? '重新选择头像' : '选择微信头像'}}</view>
-    </button>
+    </view>
+    <button class="avatar-hit-area" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" hover-class="none"></button>
   </view>
 
   <view class="card name-card">
@@ -29,7 +30,10 @@
     <input
       type="nickname"
       value="{{name}}"
+      focus="{{nameInputFocus}}"
+      cursor="{{name.length}}"
       bindinput="onNameInput"
+      bindblur="onNameBlur"
       placeholder="输入你的牌桌昵称"
     />
   </view>

@@ -26,6 +26,7 @@ Page({
     inviteCodeImage: '',
     inviteLoading: false,
     pendingAutoInvite: false,
+    pendingAutoJoin: false,
     tableWatcher: null,
     notices: [],
     noticeToasts: [],
@@ -47,10 +48,14 @@ Page({
     await store.ensureMe();
     this.setData({
       mode: store.getStoredMode(),
-      pendingAutoInvite: options.autoInvite === '1'
+      pendingAutoInvite: options.autoInvite === '1',
+      pendingAutoJoin: options.autoJoin === '1'
     });
     const tableId = options.id || '';
     const shareCode = options.shareCode || options.scene || '';
+    if (shareCode) {
+      this.setData({ pendingAutoJoin: true });
+    }
     if (tableId) {
       this.setData({ tableId });
       this.loadTable();
@@ -94,7 +99,7 @@ Page({
     const table = this.data.table || {};
     return {
       title: `加入${table.name || '麻将计分桌'}`,
-      path: `/pages/room/room?shareCode=${table.shareCode}`
+      path: `/pages/join/join?shareCode=${table.shareCode}`
     };
   },
 
@@ -171,6 +176,11 @@ Page({
       ),
       notices: (table.notifications || []).filter((item) => !myPlayer || !item.targetOpenid || item.targetOpenid === myPlayer.openid)
     });
+    if (!myPlayer && this.data.pendingAutoJoin) {
+      this.setData({ pendingAutoJoin: false });
+      this.redirectToJoin();
+      return;
+    }
     this.showPendingNotice();
     if (this.data.pendingAutoInvite) {
       this.setData({ pendingAutoInvite: false });
@@ -207,14 +217,14 @@ Page({
 
     return playerList.map((player) => {
       const score = Number(player.score) || 0;
-      const avatarCacheKey = `${player.id}:${player.avatarFileId || player.avatarUrl || ''}`;
-      let avatarDisplayUrl = this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId);
-      if (avatarDisplayUrl) {
+      const avatarIdentity = player.avatarFileId || player.avatarUrl || '';
+      const avatarCacheKey = `${player.id}:${avatarIdentity}`;
+      const resolvedAvatarUrl = this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId);
+      let avatarDisplayUrl = this.avatarDisplayCache[avatarCacheKey] || resolvedAvatarUrl;
+      if (!this.avatarDisplayCache[avatarCacheKey] && avatarDisplayUrl) {
         this.avatarDisplayCache[avatarCacheKey] = avatarDisplayUrl;
-      } else if (this.avatarDisplayCache[avatarCacheKey]) {
-        avatarDisplayUrl = this.avatarDisplayCache[avatarCacheKey];
       }
-      const viewKey = `${player.id}_${player.avatarFileId || ''}_${avatarDisplayUrl || player.avatarUrl || 'avatar-empty'}`;
+      const viewKey = `${player.id}_${avatarIdentity || 'avatar-empty'}`;
       return {
         ...player,
         initial: String(player.name || '').slice(0, 1),
@@ -238,9 +248,14 @@ Page({
   },
 
   onAvatarLoad(event) {
-    const viewKey = event.currentTarget.dataset.viewKey;
+    const dataset = event.currentTarget.dataset || {};
+    const viewKey = dataset.viewKey;
     if (viewKey && this.failedAvatarKeys && this.failedAvatarKeys[viewKey]) {
       delete this.failedAvatarKeys[viewKey];
+    }
+    const retryKey = dataset.avatarFileId || dataset.avatarUrl || viewKey;
+    if (retryKey && this.avatarRetryCounts) {
+      delete this.avatarRetryCounts[retryKey];
     }
   },
 
@@ -250,7 +265,7 @@ Page({
     const avatarFileId = dataset.avatarFileId;
     const avatarUrl = dataset.avatarUrl;
     if (viewKey) this.markAvatarLoadFailed(viewKey);
-    this.retryAvatarLoad(avatarFileId || avatarUrl || viewKey, avatarFileId);
+    this.retryAvatarLoad(avatarFileId || avatarUrl || viewKey, avatarFileId, viewKey, dataset.id);
   },
 
   markAvatarLoadFailed(viewKey) {
@@ -265,16 +280,22 @@ Page({
     this.setData({ players, targetPlayer });
   },
 
-  retryAvatarLoad(retryKey, avatarFileId) {
+  retryAvatarLoad(retryKey, avatarFileId, viewKey, playerId) {
     if (!retryKey) return;
     this.avatarRetryCounts = this.avatarRetryCounts || {};
     const retryCount = this.avatarRetryCounts[retryKey] || 0;
     if (retryCount >= 1) return;
     this.avatarRetryCounts[retryKey] = retryCount + 1;
+    if (this.avatarDisplayCache) {
+      Object.keys(this.avatarDisplayCache).forEach((key) => {
+        if (playerId && key.indexOf(`${playerId}:`) === 0) delete this.avatarDisplayCache[key];
+      });
+    }
     if (avatarFileId && store.clearAvatarUrlCache) {
       store.clearAvatarUrlCache(avatarFileId);
     }
     setTimeout(() => {
+      if (viewKey && this.failedAvatarKeys) delete this.failedAvatarKeys[viewKey];
       if (this.data.tableId) this.loadTable();
     }, 250);
   },
@@ -398,6 +419,21 @@ Page({
   openJoin() {
     wx.navigateTo({
       url: `/pages/join/join?id=${this.data.tableId}`
+    });
+  },
+
+  redirectToJoin() {
+    if (!this.data.tableId || this.redirectingToJoin) return;
+    this.redirectingToJoin = true;
+    this.stopWatching();
+    this.stopPolling();
+    wx.redirectTo({
+      url: `/pages/join/join?id=${this.data.tableId}`,
+      fail: () => {
+        this.redirectingToJoin = false;
+        this.startWatching();
+        this.startPolling();
+      }
     });
   },
 

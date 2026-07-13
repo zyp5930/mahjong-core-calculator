@@ -82,6 +82,10 @@ input {
   font-size: 30rpx;
 }
 
+.avatar-field {
+  position: relative;
+}
+
 .avatar-picker {
   height: 128rpx;
   padding: 0 24rpx;
@@ -92,6 +96,7 @@ input {
   align-items: center;
   gap: 20rpx;
   justify-content: flex-start;
+  width: 100%;
 }
 
 .avatar-preview,
@@ -115,6 +120,23 @@ input {
   color: #1f2a24;
   font-size: 30rpx;
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar-hit-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 128rpx;
+  width: 100%;
+  background: transparent;
+  border-radius: 22rpx;
+  opacity: 0;
 }
 
 .hint {

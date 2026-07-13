@@ -15,7 +15,7 @@ exports.main = async (event) => {
   try {
     const result = await cloud.openapi.wxacode.getUnlimited({
       scene: `shareCode=${shareCode}`,
-      page: 'pages/room/room',
+      page: 'pages/join/join',
       checkPath: false,
       envVersion: 'trial'
     });

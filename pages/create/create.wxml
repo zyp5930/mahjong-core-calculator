@@ -14,20 +14,24 @@
       <text class="label">牌局名称</text>
       <input value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
     </view>
-    <view class="field">
+    <view class="field avatar-field">
       <text class="label">桌主头像</text>
-      <button class="avatar-picker" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+      <view class="avatar-picker">
         <image wx:if="{{ownerAvatarUrl}}" class="avatar-preview" src="{{ownerAvatarUrl}}" mode="aspectFill"></image>
         <view wx:else class="avatar-fallback">{{ownerName.slice(0, 1) || '微'}}</view>
         <view class="avatar-copy">{{ownerAvatarUrl ? '重新选择头像' : '选择微信头像'}}</view>
-      </button>
+      </view>
+      <button class="avatar-hit-area" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" hover-class="none"></button>
     </view>
     <view class="field">
       <text class="label">桌主昵称</text>
       <input
         type="nickname"
         value="{{ownerName}}"
+        focus="{{ownerNameInputFocus}}"
+        cursor="{{ownerName.length}}"
         bindinput="onOwnerNameInput"
+        bindblur="onOwnerNameBlur"
         placeholder="输入你的微信昵称"
       />
     </view>
