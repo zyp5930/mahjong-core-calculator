@@ -55,19 +55,37 @@
         </view>
         <view class="table-meta">
           <text>{{item.createdText}} 开始</text>
-          <text class="expand-text">{{item.isExpanded ? '收起' : '展开'}}</text>
+          <view class="group-actions">
+            <text wx:if="{{item.canSettleGroupFromHome}}" class="group-settle-btn" catchtap="settleGroupFromHome" data-id="{{item.settleTableId}}">结算</text>
+            <text class="expand-text">{{item.isExpanded ? '收起' : '展开'}}</text>
+          </view>
         </view>
       </view>
 
       <view class="round-list" wx:if="{{item.isExpanded}}">
         <view class="round-row" wx:for="{{item.tables}}" wx:for-item="round" wx:key="id" catchtap="openGroupTable" data-id="{{round.id}}">
-          <view class="round-main">
-            <text class="round-title">{{round.roundText}}</text>
-            <text class="round-meta">{{round.createdText}} | {{round.durationText}}</text>
+          <view class="round-head">
+            <view class="round-main">
+              <text class="round-title">{{round.roundText}}</text>
+              <view class="round-meta-line">
+                <text class="round-meta">{{round.createdText}} | {{round.durationText}}</text>
+                <text wx:if="{{round.settlementMultiplier}}" class="round-multiplier">倍率 {{round.settlementMultiplier}}x</text>
+              </view>
+            </view>
+            <view class="round-side">
+              <text class="round-status {{round.status}}">{{round.statusText}}</text>
+              <text class="round-action">进入</text>
+            </view>
           </view>
-          <view class="round-side">
-            <text class="round-status {{round.status}}">{{round.statusText}}</text>
-            <text class="round-action">进入</text>
+          <view class="round-players">
+            <view class="round-player" wx:for="{{round.roundPlayers}}" wx:for-item="player" wx:key="id">
+              <image wx:if="{{player.avatarUrl}}" class="round-avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
+              <view wx:else class="round-avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
+              <view class="round-player-main">
+                <text class="round-player-name">{{player.name}}</text>
+                <text class="round-player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.scoreFormula || player.score}}</text>
+              </view>
+            </view>
           </view>
         </view>
       </view>
@@ -76,5 +94,18 @@
   <view wx:else class="empty card">
     <view>还没有对局</view>
     <view class="muted">先创建一桌，牌友就能从分享进入。</view>
+  </view>
+
+  <view class="sheet-mask" wx:if="{{settlementVisible}}" bindtap="closeHomeSettlement"></view>
+  <view class="settlement-sheet" wx:if="{{settlementVisible}}">
+    <view class="settlement-title">结算本次对局</view>
+    <view class="settlement-subtitle">请输入倍率后结算本次对局</view>
+    <view class="settlement-input-row">
+      <input type="digit" value="{{settlementInputValue}}" bindinput="onHomeSettlementInput" placeholder="例如 0.3" />
+    </view>
+    <view class="settlement-actions">
+      <button bindtap="closeHomeSettlement">取消</button>
+      <button class="confirm" bindtap="confirmHomeSettlement">结算</button>
+    </view>
   </view>
 </view>

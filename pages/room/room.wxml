@@ -53,7 +53,7 @@
     </view>
   </view>
 
-  <view class="ended-mask" wx:if="{{table.status === 'ended'}}">牌局已结束，仅可查看</view>
+  <view class="ended-mask" wx:if="{{table.status === 'ended'}}">{{tablePendingSettlement ? '牌局已结束，待结算' : '牌局已结束，仅可查看'}}</view>
 
   <view class="next-round-panel" wx:if="{{canStartNextRound}}">
     <view class="next-round-text">
@@ -62,7 +62,10 @@
     </view>
     <view class="next-round-actions">
       <button wx:if="{{canSettleGroup}}" class="settle-group-btn" bindtap="openSettlementInput" data-mode="group">结算所有</button>
-      <button bindtap="startNextRound">{{table.nextTableId ? '进入下一局' : '开启下一局'}}</button>
+      <button class="next-round-primary" bindtap="startNextRound">{{table.nextTableId ? '进入下一局' : '开启下一局'}}</button>
+    </view>
+    <view class="next-round-extra" wx:if="{{canSettleTable}}">
+      <button class="settle-table-btn" bindtap="openSettlementInput" data-mode="table">只结算本局</button>
     </view>
   </view>
 

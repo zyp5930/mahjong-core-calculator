@@ -132,6 +132,12 @@ function normalizeGroupSettlement(settlement) {
   };
 }
 
+function getSettlementStatus(table) {
+  if (table.settlementStatus) return table.settlementStatus;
+  if (table.settlement) return 'settled';
+  return table.status === 'ended' ? 'pending' : 'active';
+}
+
 function normalizeTableScores(table) {
   if (!table) return null;
   const id = table.id || table._id || '';
@@ -144,6 +150,7 @@ function normalizeTableScores(table) {
     nextTableId: table.nextTableId || '',
     groupStatus: table.groupStatus || (table.groupSettlement ? 'settled' : 'active'),
     groupSettlement: normalizeGroupSettlement(table.groupSettlement),
+    settlementStatus: getSettlementStatus(table),
     players: (table.players || []).map((player) => ({
       ...player,
       groupPlayerId: player.groupPlayerId || player.id,
@@ -425,6 +432,7 @@ async function createTableLocal(payload) {
     nextTableId: '',
     groupStatus: 'active',
     groupSettlement: null,
+    settlementStatus: 'active',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     endedAt: null,
@@ -616,6 +624,7 @@ function buildSettlement(table, multiplier) {
 
 function applySettlement(table, multiplier) {
   const settlement = buildSettlement(table, multiplier);
+  table.settlementStatus = 'settled';
   table.players = (table.players || []).map((player) => {
     const finalScore = settlement.finalScores.find((item) => item.playerId === player.id);
     return {
@@ -633,6 +642,28 @@ function applySettlement(table, multiplier) {
     revoked: false
   });
   table.settlement = settlement;
+}
+
+function markTableEnded(table) {
+  normalizeGroupPlayers(table);
+  table.status = 'ended';
+  table.settlementStatus = 'pending';
+  table.endedAt = table.endedAt || Date.now();
+  table.updatedAt = Date.now();
+}
+
+function settleTableWithMultiplier(table, multiplier) {
+  const value = Number(multiplier);
+  if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
+  if (table.settlement) return false;
+  if (table.status === 'active') {
+    markTableEnded(table);
+  }
+  if (table.status !== 'ended') throw new Error('请先结束本次对局');
+  normalizeGroupPlayers(table);
+  applySettlement(table, value);
+  table.updatedAt = Date.now();
+  return true;
 }
 
 function getGroupId(table) {
@@ -676,6 +707,7 @@ function buildNextTable(table) {
     nextTableId: '',
     groupStatus: 'active',
     groupSettlement: null,
+    settlementStatus: 'active',
     createdAt: now,
     updatedAt: now,
     endedAt: null,
@@ -727,7 +759,7 @@ function buildGroupSettlement(tables) {
   };
 }
 
-async function endTableLocal(tableId, multiplier) {
+async function endTableLocal(tableId) {
   const tables = readTables();
   const index = getTableIndex(tables, tableId);
   if (index < 0) throw new Error('牌局不存在');
@@ -735,12 +767,18 @@ async function endTableLocal(tableId, multiplier) {
   const ownerOpenid = getLocalOpenid();
   if (table.ownerOpenid !== ownerOpenid) throw new Error('只有桌主可以结束牌局');
   if (table.status !== 'active') throw new Error('牌局已结束');
-  const value = Number(multiplier);
-  if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
-  normalizeGroupPlayers(table);
-  table.status = 'ended';
-  table.endedAt = Date.now();
-  applySettlement(table, value);
+  markTableEnded(table);
+  writeTables(tables);
+  return clone(table);
+}
+
+async function settleTableLocal(tableId, multiplier) {
+  const tables = readTables();
+  const index = getTableIndex(tables, tableId);
+  if (index < 0) throw new Error('牌局不存在');
+  const table = tables[index];
+  if (table.ownerOpenid !== getLocalOpenid()) throw new Error('只有桌主可以结算牌局');
+  settleTableWithMultiplier(table, multiplier);
   writeTables(tables);
   return clone(table);
 }
@@ -774,15 +812,15 @@ async function settleGroupLocal(tableId, multiplier) {
   const table = tables[index];
   if (table.ownerOpenid !== getLocalOpenid()) throw new Error('只有桌主可以结算所有对局');
   if (table.groupStatus === 'settled' && table.groupSettlement) return clone(table);
-  if (table.status === 'active') {
-    const value = Number(multiplier);
-    if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
-    normalizeGroupPlayers(table);
-    table.status = 'ended';
-    table.endedAt = Date.now();
-    applySettlement(table, value);
-  }
   const groupTables = getGroupTables(tables, table);
+  const hasPendingSettlement = groupTables.some((item) => (
+    (item.status === 'active' || item.status === 'ended') && !item.settlement
+  ));
+  if (hasPendingSettlement) {
+    groupTables.forEach((item) => {
+      if (!item.settlement) settleTableWithMultiplier(item, multiplier);
+    });
+  }
   if (groupTables.some((item) => item.status !== 'ended')) throw new Error('还有未结束的对局');
   const groupSettlement = buildGroupSettlement(groupTables);
   groupTables.forEach((item) => {
@@ -910,10 +948,17 @@ async function toggleMuted(tableId) {
   );
 }
 
-async function endTable(tableId, multiplier) {
+async function endTable(tableId) {
   return withCloudFallback(
-    async () => normalizeTable(await callTableOp('endTable', { tableId, multiplier })),
-    () => endTableLocal(tableId, multiplier)
+    async () => normalizeTable(await callTableOp('endTable', { tableId })),
+    () => endTableLocal(tableId)
+  );
+}
+
+async function settleTable(tableId, multiplier) {
+  return withCloudFallback(
+    async () => normalizeTable(await callTableOp('settleTable', { tableId, multiplier })),
+    () => settleTableLocal(tableId, multiplier)
   );
 }
 
@@ -949,6 +994,7 @@ module.exports = {
   undoLastGive,
   toggleMuted,
   endTable,
+  settleTable,
   startNextTable,
   settleGroup,
   deleteTable,

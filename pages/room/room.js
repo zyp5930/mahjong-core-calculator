@@ -14,8 +14,8 @@ Page({
     keypadVisible: false,
     settlementVisible: false,
     settlementMode: 'table',
-    settlementTitle: '结束牌局',
-    settlementSubtitle: '请输入倍率后结算最终积分',
+    settlementTitle: '结算本局',
+    settlementSubtitle: '请输入倍率后结算本局积分',
     settlementConfirmText: '结算',
     targetPlayer: null,
     inputValue: '',
@@ -34,7 +34,9 @@ Page({
     finalScores: [],
     groupSettlement: null,
     canStartNextRound: false,
-    canSettleGroup: false
+    canSettleGroup: false,
+    canSettleTable: false,
+    tablePendingSettlement: false
   },
 
   async onLoad(options) {
@@ -136,6 +138,7 @@ Page({
     const settlement = table.settlement || null;
     const groupSettlement = table.groupSettlement || null;
     const isOwner = !!myPlayer && table.ownerOpenid === myPlayer.openid;
+    const tablePendingSettlement = table.status === 'ended' && table.settlementStatus === 'pending';
     this.setData({
       table,
       players,
@@ -147,6 +150,7 @@ Page({
       settlementMultiplier: settlement ? settlement.multiplier : '',
       finalScores: settlement ? settlement.finalScores || [] : [],
       groupSettlement,
+      tablePendingSettlement,
       canStartNextRound: !!(
         table.status === 'ended' &&
         !groupSettlement &&
@@ -155,6 +159,12 @@ Page({
       ),
       canSettleGroup: !!(
         table.status === 'ended' &&
+        isOwner &&
+        !groupSettlement &&
+        table.groupStatus !== 'settled'
+      ),
+      canSettleTable: !!(
+        tablePendingSettlement &&
         isOwner &&
         !groupSettlement &&
         table.groupStatus !== 'settled'
@@ -482,7 +492,7 @@ Page({
     wx.showActionSheet({
       itemList: ['结束本次对局', '结算所有对局'],
       success: (res) => {
-        if (res.tapIndex === 0) this.openSettlementInput('table');
+        if (res.tapIndex === 0) this.endCurrentTable();
         if (res.tapIndex === 1) this.openSettlementInput('group');
       }
     });
@@ -496,10 +506,10 @@ Page({
     this.setData({
       settlementVisible: true,
       settlementMode: isGroupMode ? 'group' : 'table',
-      settlementTitle: isGroupMode ? '结算所有对局' : '结束牌局',
+      settlementTitle: isGroupMode ? '结算所有对局' : '结算本局',
       settlementSubtitle: isGroupMode
-        ? '请输入倍率，先结算本局后汇总所有对局'
-        : '请输入倍率后结算最终积分',
+        ? '请输入倍率后汇总所有待结算对局'
+        : '请输入倍率后结算本局积分',
       settlementConfirmText: isGroupMode ? '总结算' : '结算',
       endInputValue: '0.3'
     });
@@ -528,7 +538,7 @@ Page({
     try {
       const table = this.data.settlementMode === 'group'
         ? await store.settleGroup(this.data.tableId, multiplier)
-        : await store.endTable(this.data.tableId, multiplier);
+        : await store.settleTable(this.data.tableId, multiplier);
       this.closeSettlement();
       if (table) {
         this.applyTable(table);
@@ -537,6 +547,22 @@ Page({
       }
     } catch (error) {
       this.showOperationError(error, '结算失败');
+    }
+  },
+
+  async endCurrentTable() {
+    try {
+      wx.showLoading({ title: '结束中' });
+      const table = await store.endTable(this.data.tableId);
+      wx.hideLoading();
+      if (table) {
+        this.applyTable(table);
+      } else {
+        this.loadTable();
+      }
+    } catch (error) {
+      wx.hideLoading();
+      this.showOperationError(error, '结束失败');
     }
   },
 

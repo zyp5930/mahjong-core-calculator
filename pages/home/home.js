@@ -1,5 +1,5 @@
 const store = require('../../services/store');
-const { formatDuration, formatTime } = require('../../utils/format');
+const { formatDuration, formatTime, normalizeScore } = require('../../utils/format');
 
 Page({
   data: {
@@ -7,7 +7,10 @@ Page({
     tableGroups: [],
     expandedGroupIds: {},
     mode: 'unknown',
-    modeText: '检测中'
+    modeText: '检测中',
+    settlementVisible: false,
+    settlementTableId: '',
+    settlementInputValue: '0.3'
   },
 
   async onShow() {
@@ -29,19 +32,68 @@ Page({
   },
 
   formatTable(table) {
+    const isPendingSettlement = table.status === 'ended' && table.settlementStatus === 'pending';
+    const isSettled = table.status === 'ended' && table.settlementStatus === 'settled';
+    const settlementMultiplier = table.settlement ? table.settlement.multiplier : '';
+    const settlementScores = ((table.settlement && table.settlement.finalScores) || []).reduce((map, score) => {
+      map[score.playerId] = score;
+      return map;
+    }, {});
+    const players = (table.players || []).map((player) => ({
+      ...player,
+      score: settlementScores[player.id] ? settlementScores[player.id].finalScore : player.score,
+      scoreFormula: settlementScores[player.id]
+        ? `${settlementScores[player.id].rawScore} × ${settlementMultiplier} = ${settlementScores[player.id].finalScore}`
+        : '',
+      initial: String(player.name || '').slice(0, 1)
+    }));
     return {
       ...table,
-      statusText: table.status === 'active' ? '进行中' : '已结束',
+      statusText: table.status === 'active' ? '进行中' : (isPendingSettlement ? '待结算' : (isSettled ? '已结算' : '已结束')),
       createdText: formatTime(table.createdAt),
       durationText: table.status === 'active'
         ? `已进行${formatDuration(table.createdAt)}`
         : `持续${formatDuration(table.createdAt, table.endedAt)}`,
       roundText: `第${Number(table.roundNo) || 1}局`,
-      players: (table.players || []).slice(0, 4).map((player) => ({
-        ...player,
-        initial: String(player.name || '').slice(0, 1)
-      }))
+      players: players.slice(0, 4),
+      roundPlayers: players,
+      settlementMultiplier
     };
+  },
+
+  buildGroupPlayers(tables) {
+    const playerMap = {};
+    tables.forEach((table) => {
+      const settlementScores = ((table.settlement && table.settlement.finalScores) || []).reduce((map, score) => {
+        map[score.playerId] = score;
+        return map;
+      }, {});
+      (table.roundPlayers || table.players || []).forEach((player) => {
+        const groupPlayerId = player.groupPlayerId || player.openid || player.id;
+        if (!playerMap[groupPlayerId]) {
+          playerMap[groupPlayerId] = {
+            ...player,
+            id: groupPlayerId,
+            score: 0,
+            initial: String(player.name || '').slice(0, 1)
+          };
+        } else {
+          playerMap[groupPlayerId] = {
+            ...playerMap[groupPlayerId],
+            name: player.name || playerMap[groupPlayerId].name,
+            avatarUrl: player.avatarUrl || playerMap[groupPlayerId].avatarUrl,
+            avatarFileId: player.avatarFileId || playerMap[groupPlayerId].avatarFileId,
+            avatarColor: player.avatarColor || playerMap[groupPlayerId].avatarColor,
+            initial: String(player.name || playerMap[groupPlayerId].name || '').slice(0, 1)
+          };
+        }
+        const score = settlementScores[player.id]
+          ? settlementScores[player.id].finalScore
+          : player.score;
+        playerMap[groupPlayerId].score = normalizeScore(playerMap[groupPlayerId].score + (Number(score) || 0));
+      });
+    });
+    return Object.values(playerMap);
   },
 
   buildTableGroups(tables) {
@@ -72,11 +124,24 @@ Page({
       const latestTable = sortedTables[sortedTables.length - 1];
       const displayTable = activeTable || latestTable || sortedTables[0];
       const endedCount = sortedTables.filter((table) => table.status === 'ended').length;
+      const pendingSettlementCount = sortedTables.filter((table) => (
+        table.status === 'ended' && table.settlementStatus === 'pending'
+      )).length;
       const settledTable = sortedTables.find((table) => table.groupSettlement);
       const groupSettlement = settledTable ? settledTable.groupSettlement : null;
       const isSettled = !!groupSettlement || sortedTables.some((table) => table.groupStatus === 'settled');
+      const isOwner = sortedTables.some((table) => {
+        const myPlayer = store.findMyPlayer({
+          ...table,
+          players: table.roundPlayers || table.players || []
+        });
+        return !!myPlayer && table.ownerOpenid === myPlayer.openid;
+      });
       const status = activeTable ? 'active' : 'ended';
-      const statusText = activeTable ? '进行中' : (isSettled ? '已总结' : '已结束');
+      const statusText = activeTable ? '进行中' : (isSettled ? '已结束' : (pendingSettlementCount ? '待结算' : '已结束'));
+      const pendingText = pendingSettlementCount ? ` | 待结算${pendingSettlementCount}局` : '';
+      const settleTable = activeTable || latestTable || sortedTables[0];
+      const groupPlayers = this.buildGroupPlayers(sortedTables);
       return {
         ...group,
         name: displayTable.name || group.name,
@@ -86,14 +151,22 @@ Page({
         isExpanded: !!expandedGroupIds[group.groupId],
         activeTableId: activeTable ? activeTable.id : '',
         latestTableId: latestTable ? latestTable.id : '',
+        settleTableId: settleTable ? settleTable.id : '',
+        canSettleGroupFromHome: !!(
+          isOwner &&
+          !activeTable &&
+          !isSettled &&
+          pendingSettlementCount > 0 &&
+          settleTable
+        ),
         tableCount: sortedTables.length,
         endedCount,
         activeCount: activeTable ? 1 : 0,
-        players: displayTable.players || [],
+        players: groupPlayers.slice(0, 4),
         tables: sortedTables,
         createdText: formatTime(group.createdAt),
         updatedText: formatTime(group.updatedAt),
-        summaryText: `${sortedTables.length}局 | 已结束${endedCount}局${activeTable ? ' | 1局进行中' : ''}`
+        summaryText: `${sortedTables.length}局 | 已结束${endedCount}局${pendingText}${activeTable ? ' | 1局进行中' : ''}`
       };
     }).sort((left, right) => right.updatedAt - left.updatedAt);
   },
@@ -128,5 +201,47 @@ Page({
     wx.navigateTo({
       url: `/pages/room/room?id=${id}`
     });
+  },
+
+  settleGroupFromHome(event) {
+    const tableId = event.currentTarget.dataset.id;
+    if (!tableId) return;
+    this.setData({
+      settlementVisible: true,
+      settlementTableId: tableId,
+      settlementInputValue: '0.3'
+    });
+  },
+
+  closeHomeSettlement() {
+    this.setData({
+      settlementVisible: false,
+      settlementTableId: '',
+      settlementInputValue: '0.3'
+    });
+  },
+
+  onHomeSettlementInput(event) {
+    this.setData({
+      settlementInputValue: event.detail.value
+    });
+  },
+
+  async confirmHomeSettlement() {
+    const multiplier = Number(String(this.data.settlementInputValue || '').trim());
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+      wx.showToast({ title: '请输入有效倍率', icon: 'none' });
+      return;
+    }
+    try {
+      wx.showLoading({ title: '结算中' });
+      await store.settleGroup(this.data.settlementTableId, multiplier);
+      wx.hideLoading();
+      this.closeHomeSettlement();
+      this.loadTables();
+    } catch (error) {
+      wx.hideLoading();
+      wx.showToast({ title: error.message || '结算失败', icon: 'none' });
+    }
   }
 });

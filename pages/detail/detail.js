@@ -33,7 +33,7 @@ Page({
     this.setData({
       table: {
         ...table,
-        statusText: table.status === 'active' ? '进行中' : '已结束'
+        statusText: table.status === 'active' ? '进行中' : (table.settlementStatus === 'pending' ? '待结算' : '已结束')
       },
       players: store.sortPlayers(table.players),
       settlement: table.settlement || null,

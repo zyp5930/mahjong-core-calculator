@@ -301,18 +301,18 @@
 
 .next-round-panel {
   margin: 22rpx 24rpx 0;
-  padding: 22rpx 24rpx;
+  padding: 24rpx;
   border: 1rpx solid #d8ebe2;
   border-radius: 24rpx;
   background: #fffdf8;
   box-shadow: 0 14rpx 34rpx rgba(96, 69, 34, 0.09);
   display: flex;
-  align-items: center;
-  gap: 20rpx;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18rpx;
 }
 
 .next-round-text {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -331,13 +331,12 @@
 }
 
 .next-round-actions {
-  flex: 0 0 auto;
   display: flex;
-  gap: 12rpx;
+  align-items: center;
+  gap: 16rpx;
 }
 
 .next-round-panel button {
-  width: 188rpx;
   height: 72rpx;
   margin: 0;
   padding: 0;
@@ -349,11 +348,33 @@
   flex: 0 0 auto;
 }
 
+.next-round-panel .next-round-primary {
+  flex: 1;
+  min-width: 0;
+}
+
 .next-round-panel .settle-group-btn {
   width: 168rpx;
   border: 1rpx solid #ded7ca;
   background: #fffdf8;
   color: #526159;
+}
+
+.next-round-extra {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6rpx;
+}
+
+.next-round-panel .settle-table-btn {
+  width: auto;
+  height: 42rpx;
+  padding: 0 4rpx;
+  border-radius: 0;
+  background: transparent;
+  color: #8a958f;
+  font-size: 24rpx;
+  line-height: 42rpx;
 }
 
 .next-round-panel button::after {

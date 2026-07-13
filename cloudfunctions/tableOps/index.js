@@ -57,6 +57,12 @@ function normalizeGroupSettlement(settlement) {
   };
 }
 
+function getSettlementStatus(table) {
+  if (table.settlementStatus) return table.settlementStatus;
+  if (table.settlement) return 'settled';
+  return table.status === 'ended' ? 'pending' : 'active';
+}
+
 function ok(data) {
   return { ok: true, data };
 }
@@ -309,6 +315,7 @@ async function updateTable(tableId, table) {
     nextTableId: table.nextTableId || '',
     groupStatus: table.groupStatus || (table.groupSettlement ? 'settled' : 'active'),
     groupSettlement: normalizeGroupSettlement(table.groupSettlement),
+    settlementStatus: getSettlementStatus(table),
     createdAt: table.createdAt,
     updatedAt: table.updatedAt || table.createdAt || Date.now(),
     endedAt: table.endedAt || null,
@@ -392,6 +399,7 @@ async function createTable(event, openid) {
     nextTableId: '',
     groupStatus: 'active',
     groupSettlement: null,
+    settlementStatus: 'active',
     createdAt: Date.now(),
     updatedAt: Date.now(),
     endedAt: null,
@@ -605,6 +613,7 @@ function buildSettlement(table, multiplier) {
 function applySettlement(table, multiplier) {
   const settlement = buildSettlement(table, multiplier);
   table.status = 'ended';
+  table.settlementStatus = 'settled';
   table.endedAt = settlement.settledAt;
   table.players = (table.players || []).map((player) => {
     const finalScore = settlement.finalScores.find((item) => item.playerId === player.id);
@@ -623,6 +632,28 @@ function applySettlement(table, multiplier) {
     revoked: false
   });
   table.settlement = settlement;
+}
+
+function markTableEnded(table) {
+  normalizeGroupPlayers(table);
+  table.status = 'ended';
+  table.settlementStatus = 'pending';
+  table.endedAt = table.endedAt || Date.now();
+  table.updatedAt = Date.now();
+}
+
+function settleTableWithMultiplier(table, multiplier) {
+  const value = Number(multiplier);
+  if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
+  if (table.settlement) return false;
+  if (table.status === 'active') {
+    markTableEnded(table);
+  }
+  if (table.status !== 'ended') throw new Error('请先结束本次对局');
+  normalizeGroupPlayers(table);
+  applySettlement(table, value);
+  table.updatedAt = Date.now();
+  return true;
 }
 
 async function getGroupTables(table) {
@@ -660,6 +691,7 @@ function buildNextTable(table) {
     nextTableId: '',
     groupStatus: 'active',
     groupSettlement: null,
+    settlementStatus: 'active',
     createdAt: now,
     updatedAt: now,
     endedAt: null,
@@ -716,10 +748,15 @@ async function endTable(event, openid) {
   if (!table) throw new Error('牌局不存在');
   if (table.ownerOpenid !== openid) throw new Error('只有桌主可以结束牌局');
   if (table.status !== 'active') throw new Error('牌局已结束');
-  const multiplier = Number(event.multiplier);
-  if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
-  normalizeGroupPlayers(table);
-  applySettlement(table, multiplier);
+  markTableEnded(table);
+  return updateTable(event.tableId, table);
+}
+
+async function settleTable(event, openid) {
+  const table = await getTableById(event.tableId);
+  if (!table) throw new Error('牌局不存在');
+  if (table.ownerOpenid !== openid) throw new Error('只有桌主可以结算牌局');
+  settleTableWithMultiplier(table, event.multiplier);
   return updateTable(event.tableId, table);
 }
 
@@ -750,14 +787,17 @@ async function settleGroup(event, openid) {
   if (table.groupStatus === 'settled' && table.groupSettlement) {
     return attachAvatarUrls(table, openid, { force: true });
   }
-  if (table.status === 'active') {
-    const multiplier = Number(event.multiplier);
-    if (!Number.isFinite(multiplier) || multiplier <= 0) throw new Error('请输入有效倍率');
-    normalizeGroupPlayers(table);
-    applySettlement(table, multiplier);
-    await updateTable(event.tableId, table);
-  }
   const groupTables = await getGroupTables({ ...table, groupId: getGroupId(table) });
+  const hasPendingSettlement = groupTables.some((item) => (
+    (item.status === 'active' || item.status === 'ended') && !item.settlement
+  ));
+  if (hasPendingSettlement) {
+    await Promise.all(groupTables.map(async (item) => {
+      if (item.settlement) return;
+      settleTableWithMultiplier(item, event.multiplier);
+      await updateTable(item._id, item);
+    }));
+  }
   if (groupTables.some((item) => item.status !== 'ended')) throw new Error('还有未结束的对局');
   const groupSettlement = buildGroupSettlement(groupTables);
   await Promise.all(groupTables.map((item) => updateTable(item._id, {
@@ -811,6 +851,8 @@ exports.main = async (event) => {
         return ok(await toggleMuted(event));
       case 'endTable':
         return ok(await endTable(event, OPENID));
+      case 'settleTable':
+        return ok(await settleTable(event, OPENID));
       case 'startNextTable':
         return ok(await startNextTable(event, OPENID));
       case 'settleGroup':
