@@ -9,25 +9,61 @@
 
   <view class="hero-card">
     <view class="hero-copy">
-      <view class="eyebrow">MAHJONG SCORE</view>
-      <view class="hero-title">开一桌，输赢都算清楚</view>
-      <view class="hero-desc">牌友扫码加入，桌主实时记分，结算明细自动保留。</view>
+      <view class="eyebrow">牌桌记分本</view>
+      <view class="hero-title">起桌、给分、结账，别糊涂</view>
+      <view class="hero-desc">牌友扫码入座，分数当场落账，散场有明细。</view>
+      <view class="hero-stats">
+        <view>
+          <text>{{quickStats.totalGroups}}</text>
+          <text>桌</text>
+        </view>
+        <view>
+          <text>{{quickStats.activeGroups}}</text>
+          <text>开打</text>
+        </view>
+        <view>
+          <text>{{quickStats.pendingGroups}}</text>
+          <text>待结账</text>
+        </view>
+      </view>
     </view>
     <view class="hero-tiles">
-      <view class="hero-tile hero-tile-back">發</view>
+      <view class="hero-tile hero-tile-back">发</view>
       <view class="hero-tile hero-tile-mid">中</view>
       <view class="hero-tile hero-tile-front">东</view>
     </view>
   </view>
 
-  <view class="section-title">快速开桌</view>
-  <view class="mode-grid">
-    <navigator class="mode-card card highlight" url="/pages/create/create" hover-class="card-press" hover-stay-time="80">
-      <view class="badge">多人</view>
-      <view class="mode-title">多人计分桌</view>
-      <view class="mode-desc">牌友扫码进入，自己操作计分</view>
-      <view class="mode-action">立即创建</view>
+  <view class="desk-actions">
+    <navigator class="desk-action action-primary" url="/pages/create/create" hover-class="card-press" hover-stay-time="80">
+      <view class="action-icon">东</view>
+      <view class="action-main">
+        <view class="action-title">新开一桌</view>
+        <view class="action-desc">桌主开局，牌友扫码入座</view>
+      </view>
+      <view class="action-arrow">›</view>
     </navigator>
+    <view
+      wx:if="{{latestGroup}}"
+      class="desk-action action-secondary"
+      bindtap="openLatestTable"
+      hover-class="card-press"
+      hover-stay-time="80"
+    >
+      <view class="action-icon">南</view>
+      <view class="action-main">
+        <view class="action-title">续上最近桌</view>
+        <view class="action-desc">{{latestGroup.name}} · {{latestGroup.statusText}}</view>
+      </view>
+      <view class="action-arrow">›</view>
+    </view>
+    <view wx:else class="desk-action action-secondary action-disabled">
+      <view class="action-icon">南</view>
+      <view class="action-main">
+        <view class="action-title">续上最近桌</view>
+        <view class="action-desc">开过一桌后会出现在这里</view>
+      </view>
+    </view>
   </view>
 
   <view class="section-title recent-title">最近对局</view>
@@ -50,7 +86,7 @@
             <image wx:if="{{player.avatarUrl}}" class="avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
             <view wx:else class="avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
             <text>{{player.name}}</text>
-            <text class="{{player.score >= 0 ? 'score win' : 'score lose'}}">{{player.score}}</text>
+            <text class="{{player.score >= 0 ? 'score win' : 'score lose'}}">{{player.scoreText}}</text>
           </view>
         </view>
         <view class="table-meta">
@@ -83,7 +119,7 @@
               <view wx:else class="round-avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
               <view class="round-player-main">
                 <text class="round-player-name">{{player.name}}</text>
-                <text class="round-player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.scoreFormula || player.score}}</text>
+                <text class="round-player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.scoreFormula || player.scoreText}}</text>
               </view>
             </view>
           </view>

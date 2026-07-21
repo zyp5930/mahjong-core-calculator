@@ -217,6 +217,7 @@ Page({
 
     return playerList.map((player) => {
       const score = Number(player.score) || 0;
+      const scoreState = score > 0 ? 'win' : (score < 0 ? 'lose' : 'even');
       const avatarIdentity = player.avatarFileId || player.avatarUrl || '';
       const avatarCacheKey = `${player.id}:${avatarIdentity}`;
       const resolvedAvatarUrl = this.buildAvatarDisplayUrl(player.avatarUrl, player.avatarFileId);
@@ -229,7 +230,9 @@ Page({
         ...player,
         initial: String(player.name || '').slice(0, 1),
         absScore: Math.abs(score),
-        rankEmoji: hasWinnerAndLoser && score === maxScore ? '🐶' : (hasWinnerAndLoser && score === minScore ? '😭' : ''),
+        scoreState,
+        scoreLabel: score > 0 ? '赢' : (score < 0 ? '输' : '平'),
+        rankText: hasWinnerAndLoser && score === maxScore ? '领跑' : (hasWinnerAndLoser && score === minScore ? '追分' : ''),
         avatarDisplayUrl,
         viewKey,
         avatarLoadFailed: !!this.failedAvatarKeys[viewKey]

@@ -14,6 +14,23 @@
     </button>
   </view>
 
+  <view class="table-strip" wx:if="{{table}}">
+    <view class="table-strip-main">
+      <view class="round-badge">第{{table.roundNo || 1}}局</view>
+      <view class="table-title-wrap">
+        <view class="table-title">{{table.name}}</view>
+        <view class="table-subtitle">
+          <text wx:if="{{myPlayer}}">{{myPlayer.name}} 已入座</text>
+          <text wx:else>旁观中</text>
+          <text> · {{mode === 'cloud' ? '云同步' : '本地桌'}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="table-state {{table.status}}">
+      {{table.status === 'active' ? '开打中' : (tablePendingSettlement ? '待结账' : '已收桌')}}
+    </view>
+  </view>
+
   <view class="join-tip" wx:if="{{table && !myPlayer}}">
     <text>加入牌局后开始计分</text>
     <button bindtap="openJoin">加入</button>
@@ -35,13 +52,13 @@
           data-avatar-url="{{item.avatarDisplayUrl}}"
         ></image>
         <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
-        <view wx:if="{{item.rankEmoji}}" class="rank-emoji">{{item.rankEmoji}}</view>
+        <view wx:if="{{item.rankText}}" class="rank-badge">{{item.rankText}}</view>
         <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
       </view>
       <view class="player-main">
         <view class="player-name">{{item.name}}</view>
-        <view class="score-line {{item.score >= 0 ? 'win' : 'lose'}}">
-          <text>{{item.score >= 0 ? '赢：' : '输：'}}</text>
+        <view class="score-line {{item.scoreState}}">
+          <text>{{item.scoreLabel}}：</text>
           <text class="score-num">{{item.absScore}}</text>
         </view>
       </view>
@@ -114,7 +131,7 @@
       </view>
     </view>
     <view class="keypad">
-      <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" class="{{item === '确认' ? 'confirm' : ''}}">{{item}}</button>
+      <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" class="{{item === '确认' ? 'confirm' : ''}} {{item === '确认' && !inputValue ? 'disabled' : ''}}">{{item}}</button>
     </view>
   </view>
 
@@ -155,6 +172,6 @@
   </view>
 
   <view class="bottom-actions">
-    <button class="refresh-btn" bindtap="refreshTable">刷新当前页面</button>
+    <button class="refresh-btn" bindtap="refreshTable">{{mode === 'cloud' ? '同步中，点此手动刷新' : '本地桌，点此刷新'}}</button>
   </view>
 </view>

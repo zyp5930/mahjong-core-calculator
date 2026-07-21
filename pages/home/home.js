@@ -5,6 +5,12 @@ Page({
   data: {
     tables: [],
     tableGroups: [],
+    latestGroup: null,
+    quickStats: {
+      totalGroups: 0,
+      activeGroups: 0,
+      pendingGroups: 0
+    },
     expandedGroupIds: {},
     mode: 'unknown',
     modeText: '检测中',
@@ -25,10 +31,18 @@ Page({
   async loadTables() {
     const tables = await store.listTables();
     const formattedTables = tables.map((table) => this.formatTable(table));
+    const tableGroups = this.buildTableGroups(formattedTables);
     this.setData({
       tables: formattedTables,
-      tableGroups: this.buildTableGroups(formattedTables)
+      tableGroups,
+      latestGroup: this.buildLatestGroup(tableGroups),
+      quickStats: this.buildQuickStats(tableGroups)
     });
+  },
+
+  formatScoreText(score) {
+    const value = normalizeScore(Number(score) || 0);
+    return value > 0 ? `+${value}` : `${value}`;
   },
 
   formatTable(table) {
@@ -45,6 +59,7 @@ Page({
       scoreFormula: settlementScores[player.id]
         ? `${settlementScores[player.id].rawScore} × ${settlementMultiplier} = ${settlementScores[player.id].finalScore}`
         : '',
+      scoreText: this.formatScoreText(settlementScores[player.id] ? settlementScores[player.id].finalScore : player.score),
       initial: String(player.name || '').slice(0, 1)
     }));
     return {
@@ -93,7 +108,29 @@ Page({
         playerMap[groupPlayerId].score = normalizeScore(playerMap[groupPlayerId].score + (Number(score) || 0));
       });
     });
-    return Object.values(playerMap);
+    return Object.values(playerMap)
+      .map((player) => ({
+        ...player,
+        scoreText: this.formatScoreText(player.score)
+      }))
+      .sort((left, right) => right.score - left.score);
+  },
+
+  buildLatestGroup(groups) {
+    const latestGroup = groups[0];
+    if (!latestGroup) return null;
+    return {
+      ...latestGroup,
+      entryTableId: latestGroup.activeTableId || latestGroup.latestTableId || latestGroup.settleTableId
+    };
+  },
+
+  buildQuickStats(groups) {
+    return {
+      totalGroups: groups.length,
+      activeGroups: groups.filter((group) => group.status === 'active').length,
+      pendingGroups: groups.filter((group) => !group.isSettled && group.status !== 'active').length
+    };
   },
 
   buildTableGroups(tables) {
@@ -201,6 +238,12 @@ Page({
     wx.navigateTo({
       url: `/pages/room/room?id=${id}`
     });
+  },
+
+  openLatestTable() {
+    const latestGroup = this.data.latestGroup;
+    if (!latestGroup || !latestGroup.entryTableId) return;
+    this.openTableById(latestGroup.entryTableId);
   },
 
   settleGroupFromHome(event) {

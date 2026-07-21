@@ -16,6 +16,84 @@
   box-shadow: 0 8rpx 22rpx rgba(96, 69, 34, 0.06);
 }
 
+.table-strip {
+  margin: 20rpx 24rpx 0;
+  padding: 22rpx 24rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 24rpx;
+  background: #fffdf8;
+  box-shadow: 0 14rpx 34rpx rgba(96, 69, 34, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.table-strip-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  flex: 1;
+}
+
+.round-badge {
+  min-width: 86rpx;
+  height: 44rpx;
+  padding: 0 14rpx;
+  border-radius: 999rpx;
+  background: #e3f2ea;
+  color: #12855a;
+  font-size: 24rpx;
+  line-height: 44rpx;
+  text-align: center;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.table-title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.table-title {
+  color: #1f2a24;
+  font-size: 34rpx;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-subtitle {
+  margin-top: 6rpx;
+  color: #7d8982;
+  font-size: 24rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-state {
+  flex: 0 0 auto;
+  height: 46rpx;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  line-height: 46rpx;
+  font-weight: 700;
+}
+
+.table-state.active {
+  background: #e3f2ea;
+  color: #12855a;
+}
+
+.table-state.ended {
+  background: #eef1ef;
+  color: #7b8680;
+}
+
 .tool {
   width: 120rpx;
   min-height: 100rpx;
@@ -189,16 +267,19 @@
   text-align: center;
 }
 
-.rank-emoji {
+.rank-badge {
   position: absolute;
-  right: 0;
-  top: -24rpx;
-  width: 58rpx;
-  height: 58rpx;
-  font-size: 46rpx;
-  line-height: 58rpx;
+  right: -4rpx;
+  bottom: -8rpx;
+  min-width: 62rpx;
+  height: 34rpx;
+  padding: 0 10rpx;
+  border-radius: 999rpx;
+  background: rgba(18, 133, 90, 0.12);
+  color: #12855a;
+  font-size: 20rpx;
+  line-height: 34rpx;
   text-align: center;
-  text-shadow: 0 2rpx 6rpx rgba(47, 51, 55, 0.24);
 }
 
 .player-main {
@@ -233,6 +314,10 @@
   color: #526159;
 }
 
+.score-line.even {
+  color: #8a958f;
+}
+
 .score-num {
   margin-left: 10rpx;
   min-width: 72rpx;
@@ -252,8 +337,12 @@
   background: #edf1ef;
 }
 
+.score-line.even .score-num {
+  background: #f5f6f5;
+}
+
 .action-group {
-  width: 248rpx;
+  width: 230rpx;
   flex: 0 0 auto;
   display: flex;
   gap: 12rpx;
@@ -284,7 +373,7 @@
 }
 
 .give-placeholder {
-  width: 248rpx;
+  width: 230rpx;
 }
 
 .ended-mask {
@@ -770,4 +859,8 @@
   border-color: #12855a;
   color: #ffffff;
   font-size: 34rpx;
+}
+
+.keypad button.disabled {
+  opacity: 0.52;
 }
