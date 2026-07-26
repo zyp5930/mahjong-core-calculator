@@ -14,30 +14,74 @@ Page({
     expandedGroupIds: {},
     mode: 'unknown',
     modeText: '检测中',
+    loadingTables: true,
+    loadErrorText: '',
+    emptyTitle: '正在加载对局',
+    emptySubtitle: '稍等一下，正在同步牌桌。',
     settlementVisible: false,
     settlementTableId: '',
     settlementInputValue: '0.3'
   },
 
   async onShow() {
-    await store.ensureMe();
     this.setData({
       mode: store.getStoredMode(),
       modeText: store.getStoredMode() === 'cloud' ? '云同步模式' : '本地模式'
     });
-    this.loadTables();
+    try {
+      const me = await store.ensureMe();
+      const mode = me.mode || store.getStoredMode();
+      this.setData({
+        mode,
+        modeText: mode === 'cloud' ? '云同步模式' : '本地模式'
+      });
+    } catch (error) {
+      console.error('[home ensureMe error]', error);
+      this.setData({
+        mode: 'local',
+        modeText: '本地模式'
+      });
+    }
+    await this.loadTables();
   },
 
   async loadTables() {
-    const tables = await store.listTables();
-    const formattedTables = tables.map((table) => this.formatTable(table));
-    const tableGroups = this.buildTableGroups(formattedTables);
     this.setData({
-      tables: formattedTables,
-      tableGroups,
-      latestGroup: this.buildLatestGroup(tableGroups),
-      quickStats: this.buildQuickStats(tableGroups)
+      loadingTables: true,
+      loadErrorText: '',
+      emptyTitle: '正在加载对局',
+      emptySubtitle: '稍等一下，正在同步牌桌。'
     });
+    try {
+      const tables = await store.listTables();
+      const formattedTables = tables.map((table) => this.formatTable(table));
+      const tableGroups = this.buildTableGroups(formattedTables);
+      this.setData({
+        tables: formattedTables,
+        tableGroups,
+        latestGroup: this.buildLatestGroup(tableGroups),
+        quickStats: this.buildQuickStats(tableGroups),
+        loadingTables: false,
+        emptyTitle: '还没有对局',
+        emptySubtitle: '先创建一桌，牌友就能从分享进入。'
+      });
+    } catch (error) {
+      console.error('[home loadTables error]', error);
+      this.setData({
+        tables: [],
+        tableGroups: [],
+        latestGroup: null,
+        quickStats: this.buildQuickStats([]),
+        loadingTables: false,
+        loadErrorText: error.message || '对局加载失败',
+        emptyTitle: error.message || '对局加载失败',
+        emptySubtitle: '可以先新开一桌，或稍后再试。'
+      });
+      wx.showToast({
+        title: '对局加载失败',
+        icon: 'none'
+      });
+    }
   },
 
   formatScoreText(score) {
@@ -70,10 +114,18 @@ Page({
         ? `已进行${formatDuration(table.createdAt)}`
         : `持续${formatDuration(table.createdAt, table.endedAt)}`,
       roundText: `第${Number(table.roundNo) || 1}局`,
-      players: players.slice(0, 4),
+      players,
       roundPlayers: players,
       settlementMultiplier
     };
+  },
+
+  buildRoundDurationText(table, nextTable) {
+    if (table.status === 'active') return `已进行${formatDuration(table.createdAt)}`;
+    const createdAt = Number(table.createdAt) || 0;
+    const nextStartedAt = Number(nextTable && nextTable.createdAt) || 0;
+    const endedAt = nextStartedAt > createdAt ? nextStartedAt : table.endedAt;
+    return `持续${formatDuration(table.createdAt, endedAt)}`;
   },
 
   buildGroupPlayers(tables) {
@@ -157,17 +209,21 @@ Page({
         (Number(left.roundNo) || 1) - (Number(right.roundNo) || 1) ||
         (Number(left.createdAt) || 0) - (Number(right.createdAt) || 0)
       ));
-      const activeTable = sortedTables.find((table) => table.status === 'active');
-      const latestTable = sortedTables[sortedTables.length - 1];
-      const displayTable = activeTable || latestTable || sortedTables[0];
-      const endedCount = sortedTables.filter((table) => table.status === 'ended').length;
-      const pendingSettlementCount = sortedTables.filter((table) => (
+      const displayTables = sortedTables.map((table, index) => ({
+        ...table,
+        durationText: this.buildRoundDurationText(table, sortedTables[index + 1])
+      }));
+      const activeTable = displayTables.find((table) => table.status === 'active');
+      const latestTable = displayTables[displayTables.length - 1];
+      const displayTable = activeTable || latestTable || displayTables[0];
+      const endedCount = displayTables.filter((table) => table.status === 'ended').length;
+      const pendingSettlementCount = displayTables.filter((table) => (
         table.status === 'ended' && table.settlementStatus === 'pending'
       )).length;
-      const settledTable = sortedTables.find((table) => table.groupSettlement);
+      const settledTable = displayTables.find((table) => table.groupSettlement);
       const groupSettlement = settledTable ? settledTable.groupSettlement : null;
-      const isSettled = !!groupSettlement || sortedTables.some((table) => table.groupStatus === 'settled');
-      const isOwner = sortedTables.some((table) => {
+      const isSettled = !!groupSettlement || displayTables.some((table) => table.groupStatus === 'settled');
+      const isOwner = displayTables.some((table) => {
         const myPlayer = store.findMyPlayer({
           ...table,
           players: table.roundPlayers || table.players || []
@@ -177,8 +233,8 @@ Page({
       const status = activeTable ? 'active' : 'ended';
       const statusText = activeTable ? '进行中' : (isSettled ? '已结束' : (pendingSettlementCount ? '待结算' : '已结束'));
       const pendingText = pendingSettlementCount ? ` | 待结算${pendingSettlementCount}局` : '';
-      const settleTable = activeTable || latestTable || sortedTables[0];
-      const groupPlayers = this.buildGroupPlayers(sortedTables);
+      const settleTable = activeTable || latestTable || displayTables[0];
+      const groupPlayers = this.buildGroupPlayers(displayTables);
       return {
         ...group,
         name: displayTable.name || group.name,
@@ -196,14 +252,16 @@ Page({
           pendingSettlementCount > 0 &&
           settleTable
         ),
-        tableCount: sortedTables.length,
+        tableCount: displayTables.length,
         endedCount,
         activeCount: activeTable ? 1 : 0,
-        players: groupPlayers.slice(0, 4),
-        tables: sortedTables,
+        players: groupPlayers,
+        playerColumnCount: Math.min(5, Math.max(1, groupPlayers.length)),
+        canScrollPlayers: groupPlayers.length > 5,
+        tables: displayTables,
         createdText: formatTime(group.createdAt),
         updatedText: formatTime(group.updatedAt),
-        summaryText: `${sortedTables.length}局 | 已结束${endedCount}局${pendingText}${activeTable ? ' | 1局进行中' : ''}`
+        summaryText: `${displayTables.length}局 | 已结束${endedCount}局${pendingText}${activeTable ? ' | 1局进行中' : ''}`
       };
     }).sort((left, right) => right.updatedAt - left.updatedAt);
   },

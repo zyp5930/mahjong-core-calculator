@@ -614,7 +614,7 @@ function applySettlement(table, multiplier) {
   const settlement = buildSettlement(table, multiplier);
   table.status = 'ended';
   table.settlementStatus = 'settled';
-  table.endedAt = settlement.settledAt;
+  table.endedAt = table.endedAt || settlement.settledAt;
   table.players = (table.players || []).map((player) => {
     const finalScore = settlement.finalScores.find((item) => item.playerId === player.id);
     return {

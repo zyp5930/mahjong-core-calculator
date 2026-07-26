@@ -81,14 +81,16 @@
           <text>{{item.summaryText}}</text>
           <text>{{item.updatedText}} 更新</text>
         </view>
-        <view class="players">
-          <view class="player-chip" wx:for="{{item.players}}" wx:for-item="player" wx:key="id">
-            <image wx:if="{{player.avatarUrl}}" class="avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
-            <view wx:else class="avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
-            <text>{{player.name}}</text>
-            <text class="{{player.score >= 0 ? 'score win' : 'score lose'}}">{{player.scoreText}}</text>
+        <scroll-view class="players-scroll {{item.canScrollPlayers ? 'players-scrollable' : ''}}" scroll-x="{{item.canScrollPlayers}}" enable-flex="{{item.canScrollPlayers}}">
+          <view class="players players-count-{{item.playerColumnCount}}">
+            <view class="player-chip" wx:for="{{item.players}}" wx:for-item="player" wx:key="id">
+              <image wx:if="{{player.avatarUrl}}" class="avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
+              <view wx:else class="avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
+              <text>{{player.name}}</text>
+              <text class="{{player.score >= 0 ? 'score win' : 'score lose'}}">{{player.scoreText}}</text>
+            </view>
           </view>
-        </view>
+        </scroll-view>
         <view class="table-meta">
           <text>{{item.createdText}} 开始</text>
           <view class="group-actions">
@@ -128,8 +130,8 @@
     </view>
   </block>
   <view wx:else class="empty card">
-    <view>还没有对局</view>
-    <view class="muted">先创建一桌，牌友就能从分享进入。</view>
+    <view>{{emptyTitle}}</view>
+    <view class="muted">{{emptySubtitle}}</view>
   </view>
 
   <view class="sheet-mask" wx:if="{{settlementVisible}}" bindtap="closeHomeSettlement"></view>

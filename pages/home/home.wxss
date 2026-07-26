@@ -375,18 +375,39 @@
   white-space: nowrap;
 }
 
-.players {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20rpx;
+.players-scroll {
   margin-top: 26rpx;
   position: relative;
   z-index: 1;
+  width: 100%;
+}
+
+.players {
+  display: flex;
+  gap: 20rpx;
+  justify-content: flex-start;
+}
+
+.players-count-5 {
+  gap: 12rpx;
+}
+
+.players-scrollable .players {
+  display: flex;
+  gap: 12rpx;
+  min-width: 100%;
 }
 
 .player-chip {
-  min-width: 0;
+  width: 128rpx;
+  flex: 0 0 128rpx;
   text-align: center;
+}
+
+.players-count-5 .player-chip,
+.players-scrollable .player-chip {
+  width: 104rpx;
+  flex: 0 0 104rpx;
 }
 
 .avatar {
@@ -414,9 +435,27 @@
   font-size: 24rpx;
 }
 
+.players-count-5 .avatar,
+.players-scrollable .avatar {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+}
+
+.players-count-5 .player-chip text,
+.players-scrollable .player-chip text {
+  font-size: 22rpx;
+}
+
 .score {
   margin-top: 6rpx;
   font-size: 34rpx;
+}
+
+.players-count-5 .score,
+.players-scrollable .score {
+  font-size: 30rpx;
 }
 
 .score.win {
