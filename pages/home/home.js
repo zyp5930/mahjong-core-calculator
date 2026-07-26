@@ -173,7 +173,7 @@ Page({
     if (!latestGroup) return null;
     return {
       ...latestGroup,
-      entryTableId: latestGroup.activeTableId || latestGroup.latestTableId || latestGroup.settleTableId
+      entryTableId: latestGroup.latestTableId || latestGroup.activeTableId || latestGroup.settleTableId
     };
   },
 
@@ -213,7 +213,7 @@ Page({
         ...table,
         durationText: this.buildRoundDurationText(table, sortedTables[index + 1])
       }));
-      const activeTable = displayTables.find((table) => table.status === 'active');
+      const activeTable = displayTables.slice().reverse().find((table) => table.status === 'active');
       const latestTable = displayTables[displayTables.length - 1];
       const displayTable = activeTable || latestTable || displayTables[0];
       const endedCount = displayTables.filter((table) => table.status === 'ended').length;
