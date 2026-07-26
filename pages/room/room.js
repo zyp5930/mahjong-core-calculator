@@ -232,7 +232,7 @@ Page({
         absScore: Math.abs(score),
         scoreState,
         scoreLabel: score > 0 ? '赢' : (score < 0 ? '输' : '平'),
-        rankText: hasWinnerAndLoser && score === maxScore ? '领跑' : (hasWinnerAndLoser && score === minScore ? '追分' : ''),
+        rankEmoji: hasWinnerAndLoser && score === maxScore ? '👑' : (hasWinnerAndLoser && score === minScore ? '🐶' : ''),
         avatarDisplayUrl,
         viewKey,
         avatarLoadFailed: !!this.failedAvatarKeys[viewKey]

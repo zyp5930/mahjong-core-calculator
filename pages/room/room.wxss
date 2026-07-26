@@ -267,19 +267,16 @@
   text-align: center;
 }
 
-.rank-badge {
+.rank-emoji {
   position: absolute;
-  right: -4rpx;
-  bottom: -8rpx;
-  min-width: 62rpx;
-  height: 34rpx;
-  padding: 0 10rpx;
-  border-radius: 999rpx;
-  background: rgba(18, 133, 90, 0.12);
-  color: #12855a;
-  font-size: 20rpx;
-  line-height: 34rpx;
+  right: 2rpx;
+  top: -20rpx;
+  width: 54rpx;
+  height: 54rpx;
+  font-size: 42rpx;
+  line-height: 54rpx;
   text-align: center;
+  text-shadow: 0 2rpx 6rpx rgba(47, 51, 55, 0.2);
 }
 
 .player-main {

@@ -176,12 +176,10 @@ Page({
     const entryTable = groupTables.find((table) => table.id === targetTableId) || groupTables[groupTables.length - 1] || null;
     const entryTableId = entryTable ? entryTable.id : targetTableId;
     const entryName = latestGroup.name || '麻将计分桌';
-    const entryStatusText = entryTable ? entryTable.statusText : latestGroup.statusText;
     const entryParts = [
       entryName,
       entryTable ? entryTable.roundText : '',
-      entryTable && entryTable.createdText ? `${entryTable.createdText}开始` : '',
-      entryStatusText
+      entryTable && entryTable.createdText ? `${entryTable.createdText}开始` : ''
     ];
     return {
       ...latestGroup,
@@ -189,7 +187,6 @@ Page({
       entryName,
       entryRoundText: entryTable ? entryTable.roundText : '',
       entryCreatedText: entryTable ? entryTable.createdText : '',
-      entryStatusText,
       entryDesc: entryParts.filter(Boolean).join(' · ')
     };
   },

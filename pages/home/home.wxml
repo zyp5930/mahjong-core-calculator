@@ -36,7 +36,17 @@
 
   <view class="desk-actions">
     <navigator class="desk-action action-primary" url="/pages/create/create" hover-class="card-press" hover-stay-time="80">
-      <view class="action-icon">东</view>
+      <view class="action-icon action-fortune-icon">
+        <view class="fortune-symbol">
+          <view class="fortune-tile">
+            <view class="fortune-char">發</view>
+          </view>
+          <view class="fortune-spark">
+            <view class="fortune-spark-line fortune-spark-vertical"></view>
+            <view class="fortune-spark-line fortune-spark-horizontal"></view>
+          </view>
+        </view>
+      </view>
       <view class="action-main">
         <view class="action-title">新开一桌</view>
         <view class="action-desc">桌主开局，牌友扫码入座</view>
@@ -50,17 +60,33 @@
       hover-class="card-press"
       hover-stay-time="80"
     >
-      <view class="action-icon">南</view>
+      <view class="action-icon action-latest-icon">
+        <view class="clock-symbol">
+          <view class="clock-face">
+            <view class="clock-hand clock-hand-hour"></view>
+            <view class="clock-hand clock-hand-minute"></view>
+            <view class="clock-dot"></view>
+          </view>
+        </view>
+      </view>
       <view class="action-main">
-        <view class="action-title">一键跳转最近对局</view>
+        <view class="action-title">跳转最近对局</view>
         <view class="action-desc">{{latestGroup.entryDesc}}</view>
       </view>
       <view class="action-arrow">›</view>
     </view>
     <view wx:else class="desk-action action-secondary action-disabled">
-      <view class="action-icon">南</view>
+      <view class="action-icon action-latest-icon">
+        <view class="clock-symbol">
+          <view class="clock-face">
+            <view class="clock-hand clock-hand-hour"></view>
+            <view class="clock-hand clock-hand-minute"></view>
+            <view class="clock-dot"></view>
+          </view>
+        </view>
+      </view>
       <view class="action-main">
-        <view class="action-title">一键跳转最近对局</view>
+        <view class="action-title">跳转最近对局</view>
         <view class="action-desc">开过一桌后会出现在这里</view>
       </view>
     </view>

@@ -52,7 +52,7 @@
           data-avatar-url="{{item.avatarDisplayUrl}}"
         ></image>
         <view wx:else class="avatar" style="background: {{item.avatarColor}}">{{item.initial}}</view>
-        <view wx:if="{{item.rankText}}" class="rank-badge">{{item.rankText}}</view>
+        <view wx:if="{{item.rankEmoji}}" class="rank-emoji">{{item.rankEmoji}}</view>
         <view wx:if="{{item.isOwner}}" class="owner-badge">桌主</view>
       </view>
       <view class="player-main">
