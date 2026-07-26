@@ -193,7 +193,9 @@
 }
 
 .desk-action {
-  min-height: 140rpx;
+  width: 100%;
+  height: 152rpx;
+  box-sizing: border-box;
   padding: 24rpx 24rpx 24rpx 26rpx;
   border: 1rpx solid #eee4d4;
   border-radius: 22rpx;
@@ -251,10 +253,11 @@
 }
 
 .action-desc {
-  margin-top: 8rpx;
+  margin-top: 6rpx;
   color: #7d8982;
-  font-size: 24rpx;
-  line-height: 1.4;
+  font-size: 22rpx;
+  line-height: 1.32;
+  white-space: normal;
 }
 
 .action-arrow {

@@ -52,15 +52,15 @@
     >
       <view class="action-icon">南</view>
       <view class="action-main">
-        <view class="action-title">续上最近桌</view>
-        <view class="action-desc">{{latestGroup.name}} · {{latestGroup.statusText}}</view>
+        <view class="action-title">一键跳转最近对局</view>
+        <view class="action-desc">{{latestGroup.entryDesc}}</view>
       </view>
       <view class="action-arrow">›</view>
     </view>
     <view wx:else class="desk-action action-secondary action-disabled">
       <view class="action-icon">南</view>
       <view class="action-main">
-        <view class="action-title">续上最近桌</view>
+        <view class="action-title">一键跳转最近对局</view>
         <view class="action-desc">开过一桌后会出现在这里</view>
       </view>
     </view>

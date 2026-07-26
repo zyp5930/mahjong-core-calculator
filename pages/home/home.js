@@ -171,9 +171,26 @@ Page({
   buildLatestGroup(groups) {
     const latestGroup = groups[0];
     if (!latestGroup) return null;
+    const groupTables = latestGroup.tables || [];
+    const targetTableId = latestGroup.latestTableId || latestGroup.activeTableId || latestGroup.settleTableId;
+    const entryTable = groupTables.find((table) => table.id === targetTableId) || groupTables[groupTables.length - 1] || null;
+    const entryTableId = entryTable ? entryTable.id : targetTableId;
+    const entryName = latestGroup.name || '麻将计分桌';
+    const entryStatusText = entryTable ? entryTable.statusText : latestGroup.statusText;
+    const entryParts = [
+      entryName,
+      entryTable ? entryTable.roundText : '',
+      entryTable && entryTable.createdText ? `${entryTable.createdText}开始` : '',
+      entryStatusText
+    ];
     return {
       ...latestGroup,
-      entryTableId: latestGroup.latestTableId || latestGroup.activeTableId || latestGroup.settleTableId
+      entryTableId,
+      entryName,
+      entryRoundText: entryTable ? entryTable.roundText : '',
+      entryCreatedText: entryTable ? entryTable.createdText : '',
+      entryStatusText,
+      entryDesc: entryParts.filter(Boolean).join(' · ')
     };
   },
 
