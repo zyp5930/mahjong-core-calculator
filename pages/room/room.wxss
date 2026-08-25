@@ -316,26 +316,8 @@
 }
 
 .score-num {
-  margin-left: 10rpx;
-  min-width: 72rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 999rpx;
-  background: #f4f7f5;
-  font-size: 42rpx;
+  font-size: 34rpx;
   font-weight: 700;
-  text-align: center;
-}
-
-.score-line.win .score-num {
-  background: #fff0ed;
-}
-
-.score-line.lose .score-num {
-  background: #edf1ef;
-}
-
-.score-line.even .score-num {
-  background: #f5f6f5;
 }
 
 .action-group {

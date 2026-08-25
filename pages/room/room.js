@@ -112,7 +112,7 @@ Page({
     this.setData({ tableId: table.id });
     this.setData({
       table,
-      players: this.buildPlayers(table.players)
+      players: this.buildPlayers(table.players, table.settlement)
     });
     this.loadTable();
     this.startWatching();
@@ -136,7 +136,7 @@ Page({
 
   applyTable(table) {
     const myPlayer = store.findMyPlayer(table);
-    const players = this.buildPlayers(table.players);
+    const players = this.buildPlayers(table.players, table.settlement);
     const targetPlayer = this.data.targetPlayer
       ? players.find((player) => player.id === this.data.targetPlayer.id) || this.data.targetPlayer
       : null;
@@ -206,9 +206,18 @@ Page({
     });
   },
 
-  buildPlayers(players) {
-    const playerList = players || [];
-    const scores = playerList.map((player) => Number(player.score) || 0);
+  buildPlayers(players, settlement) {
+    const settlementScores = ((settlement && settlement.finalScores) || []).reduce((map, item) => {
+      map[item.playerId] = item.rawScore;
+      return map;
+    }, {});
+    const playerList = (players || []).map((player) => ({
+      ...player,
+      rawScore: Number(Object.prototype.hasOwnProperty.call(settlementScores, player.id)
+        ? settlementScores[player.id]
+        : player.score) || 0
+    }));
+    const scores = playerList.map((player) => player.rawScore);
     const maxScore = scores.length ? Math.max(...scores) : 0;
     const minScore = scores.length ? Math.min(...scores) : 0;
     const hasWinnerAndLoser = playerList.length > 1 && maxScore !== minScore;
@@ -216,7 +225,7 @@ Page({
     this.failedAvatarKeys = this.failedAvatarKeys || {};
 
     return playerList.map((player) => {
-      const score = Number(player.score) || 0;
+      const score = player.rawScore;
       const scoreState = score > 0 ? 'win' : (score < 0 ? 'lose' : 'even');
       const avatarIdentity = player.avatarFileId || player.avatarUrl || '';
       const avatarCacheKey = `${player.id}:${avatarIdentity}`;
@@ -229,9 +238,8 @@ Page({
       return {
         ...player,
         initial: String(player.name || '').slice(0, 1),
-        absScore: Math.abs(score),
         scoreState,
-        scoreLabel: score > 0 ? '赢' : (score < 0 ? '输' : '平'),
+        scoreText: score > 0 ? `+${score}` : `${score}`,
         rankEmoji: hasWinnerAndLoser && score === maxScore ? '👑' : (hasWinnerAndLoser && score === minScore ? '🐶' : ''),
         avatarDisplayUrl,
         viewKey,
@@ -446,7 +454,7 @@ Page({
     this.setData({ mode: store.getStoredMode() });
     if (store.getStoredMode() !== 'cloud') {
       wx.showToast({
-        title: '当前牌局为本地模式，请重新创建云端牌局',
+        title: '云端不可用，请检查云开发配置',
         icon: 'none'
       });
       return;

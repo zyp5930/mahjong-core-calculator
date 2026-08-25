@@ -276,19 +276,18 @@ function clearAvatarUrlCache(avatarFileId) {
 }
 
 async function ensureMe() {
-  if (cachedMe && (cachedMe.mode === 'cloud' || !hasCloudReady())) return cachedMe;
+  if (cachedMe) return cachedMe;
   if (!hasCloudReady()) {
-    cachedMe = {
-      openid: getLocalOpenid(),
-      mode: 'local'
-    };
-    return cachedMe;
+    throw new Error('云环境未初始化，请检查 app.js 中的 envId');
   }
   try {
     const { result } = await withTimeout(
       wx.cloud.callFunction({ name: 'login' }),
       '云登录超时'
     );
+    if (!result || !result.openid) {
+      throw new Error('云登录未返回用户身份');
+    }
     cachedMe = {
       openid: result.openid,
       mode: 'cloud'
@@ -296,12 +295,8 @@ async function ensureMe() {
     setStoredMode('cloud');
     return cachedMe;
   } catch (error) {
-    cachedMe = {
-      openid: getLocalOpenid(),
-      mode: 'local'
-    };
-    setStoredMode('local');
-    return cachedMe;
+    setStoredMode('error');
+    throw new Error((error && error.message) || '云登录失败，请检查云函数 login 是否已部署');
   }
 }
 
@@ -331,6 +326,13 @@ async function callTableOp(action, data) {
       errCode: error && error.errCode,
       errMsg: error && error.errMsg
     });
+    if (
+      error &&
+      (error.errCode === -501000 ||
+        String(error.message || error.errMsg || '').includes('response size exceeded'))
+    ) {
+      throw new Error('云端返回数据过大，请重新部署最新云函数后重试');
+    }
     throw error;
   }
   if (!result || !result.ok) {
@@ -837,58 +839,27 @@ async function deleteTableLocal(tableId) {
   writeTables(readTables().filter((table) => table.id !== tableId));
 }
 
-async function withCloudFallback(cloudTask, localTask) {
-  const me = await ensureMe();
-  if (me.mode !== 'cloud') return localTask();
-  try {
-    const result = await cloudTask();
-    setStoredMode('cloud');
-    return result;
-  } catch (error) {
-    let localResult = null;
-    try {
-      localResult = await localTask();
-    } catch (localError) {
-      throw error;
-    }
-    if (!localResult) throw error;
-    setStoredMode('local');
-    return localResult;
-  }
-}
-
 async function withCloudOnly(cloudTask) {
   const me = await ensureMe();
-  if (me.mode !== 'cloud') {
-    throw new Error('云开发连接失败，请检查云环境或重新编译');
-  }
+  if (me.mode !== 'cloud') throw new Error('云开发连接失败，请检查云环境或重新编译');
   const result = await cloudTask();
   setStoredMode('cloud');
   return result;
 }
 
 async function listTables() {
-  return withCloudFallback(
-    async () => {
-      const tables = await callTableOp('listTables', {});
-      return Promise.all(tables.map(normalizeTable));
-    },
-    listTablesLocal
-  );
+  return withCloudOnly(async () => {
+    const tables = await callTableOp('listTables', {});
+    return Promise.all(tables.map(normalizeTable));
+  });
 }
 
 async function getTable(tableId) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('getTable', { tableId })),
-    () => getTableLocal(tableId)
-  );
+  return withCloudOnly(async () => normalizeTable(await callTableOp('getTable', { tableId })));
 }
 
 async function getTableByShareCode(shareCode) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('getTableByShareCode', { shareCode })),
-    () => getTableByShareCodeLocal(shareCode)
-  );
+  return withCloudOnly(async () => normalizeTable(await callTableOp('getTableByShareCode', { shareCode })));
 }
 
 async function createTable(payload) {
@@ -904,83 +875,65 @@ async function createTable(payload) {
 }
 
 async function joinTable(tableId, playerId, name, avatarUrl) {
-  return withCloudFallback(
-    async () => {
-      const savedAvatarUrl = await uploadCloudAvatar(avatarUrl);
-      return callTableOp('joinTable', { tableId, playerId, name, avatarFileId: savedAvatarUrl });
-    },
-    () => joinTableLocal(tableId, playerId, name, avatarUrl)
-  );
+  return withCloudOnly(async () => {
+    const savedAvatarUrl = await uploadCloudAvatar(avatarUrl);
+    return callTableOp('joinTable', { tableId, playerId, name, avatarFileId: savedAvatarUrl });
+  });
 }
 
 async function updateMyProfile(tableId, payload) {
-  return withCloudFallback(
-    async () => {
-      const savedPayload = { ...payload };
-      if (savedPayload.avatarUrl !== undefined) {
-        savedPayload.avatarFileId = await uploadCloudAvatar(savedPayload.avatarUrl);
-        delete savedPayload.avatarUrl;
-      }
-      return callTableOp('updateMyProfile', { tableId, ...savedPayload });
-    },
-    () => updateMyProfileLocal(tableId, payload)
-  );
+  return withCloudOnly(async () => {
+    const savedPayload = { ...payload };
+    if (savedPayload.avatarUrl !== undefined) {
+      savedPayload.avatarFileId = await uploadCloudAvatar(savedPayload.avatarUrl);
+      delete savedPayload.avatarUrl;
+    }
+    return callTableOp('updateMyProfile', { tableId, ...savedPayload });
+  });
 }
 
 async function giveScore(tableId, fromPlayerId, toPlayerId, amount) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('giveScore', { tableId, fromPlayerId, toPlayerId, amount })),
-    () => giveScoreLocal(tableId, fromPlayerId, toPlayerId, amount)
-  );
+  return withCloudOnly(async () => normalizeTable(
+    await callTableOp('giveScore', { tableId, fromPlayerId, toPlayerId, amount })
+  ));
 }
 
 async function undoLastGive(tableId, fromPlayerId, toPlayerId) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('undoLastGive', { tableId, fromPlayerId, toPlayerId })),
-    () => undoLastGiveLocal(tableId, fromPlayerId, toPlayerId)
-  );
+  return withCloudOnly(async () => normalizeTable(
+    await callTableOp('undoLastGive', { tableId, fromPlayerId, toPlayerId })
+  ));
 }
 
 async function toggleMuted(tableId) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('toggleMuted', { tableId })),
-    () => toggleMutedLocal(tableId)
-  );
+  return withCloudOnly(async () => normalizeTable(await callTableOp('toggleMuted', { tableId })));
 }
 
 async function endTable(tableId) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('endTable', { tableId })),
-    () => endTableLocal(tableId)
-  );
+  return withCloudOnly(async () => normalizeTable(await callTableOp('endTable', { tableId })));
 }
 
 async function settleTable(tableId, multiplier) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('settleTable', { tableId, multiplier })),
-    () => settleTableLocal(tableId, multiplier)
-  );
+  return withCloudOnly(async () => normalizeTable(
+    await callTableOp('settleTable', { tableId, multiplier })
+  ));
 }
 
 async function startNextTable(tableId) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('startNextTable', { tableId })),
-    () => startNextTableLocal(tableId)
-  );
+  return withCloudOnly(async () => normalizeTable(await callTableOp('startNextTable', { tableId })));
 }
 
 async function settleGroup(tableId, multiplier) {
-  return withCloudFallback(
-    async () => normalizeTable(await callTableOp('settleGroup', { tableId, multiplier })),
-    () => settleGroupLocal(tableId, multiplier)
-  );
+  return withCloudOnly(async () => normalizeTable(
+    await callTableOp('settleGroup', { tableId, multiplier })
+  ));
 }
 
 async function deleteTable(tableId) {
-  return withCloudFallback(
-    () => callTableOp('deleteTable', { tableId }),
-    () => deleteTableLocal(tableId)
-  );
+  return withCloudOnly(() => callTableOp('deleteTable', { tableId }));
+}
+
+async function deleteGroup(tableId) {
+  return withCloudOnly(() => callTableOp('deleteGroup', { tableId }));
 }
 
 module.exports = {
@@ -998,6 +951,7 @@ module.exports = {
   startNextTable,
   settleGroup,
   deleteTable,
+  deleteGroup,
   findMyPlayer,
   sortPlayers,
   getLocalOpenid,

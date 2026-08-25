@@ -159,6 +159,41 @@ function getWriteSummary(data) {
   };
 }
 
+function buildTableListItem(table) {
+  if (!table) return null;
+  return {
+    _id: table._id || table.id || '',
+    name: table.name,
+    shareCode: table.shareCode,
+    ownerOpenid: table.ownerOpenid,
+    status: table.status,
+    groupId: table.groupId || table._id || table.id || '',
+    roundNo: Number(table.roundNo) || 1,
+    previousTableId: table.previousTableId || '',
+    nextTableId: table.nextTableId || '',
+    groupStatus: table.groupStatus || (table.groupSettlement ? 'settled' : 'active'),
+    groupSettlement: normalizeGroupSettlement(table.groupSettlement),
+    settlementStatus: getSettlementStatus(table),
+    createdAt: table.createdAt,
+    updatedAt: table.updatedAt || table.createdAt || Date.now(),
+    endedAt: table.endedAt || null,
+    muted: !!table.muted,
+    settlement: normalizeSettlement(table.settlement),
+    players: (table.players || []).map((player) => ({
+      id: player.id,
+      groupPlayerId: player.groupPlayerId || player.id,
+      openid: player.openid || '',
+      name: player.name || '',
+      avatarUrl: player.avatarUrl || '',
+      avatarFileId: player.avatarFileId || '',
+      score: normalizeScore(player.score),
+      isOwner: !!player.isOwner,
+      avatarColor: player.avatarColor || '',
+      joinedAt: player.joinedAt || null
+    }))
+  };
+}
+
 function logError(label, error, context) {
   console.error(label, {
     context,
@@ -183,6 +218,9 @@ function getErrorMessage(error) {
   }
   if (message.includes('permission') || message.includes('PERMISSION_DENIED')) {
     return '云数据库权限不足，请检查 tables 集合权限';
+  }
+  if (message.includes('response size exceeded') || message.includes('EXCEED_MAX_RESPONSE_SIZE')) {
+    return '云端返回数据过大，请重新部署最新云函数后重试';
   }
   return message || '云函数执行失败';
 }
@@ -372,9 +410,28 @@ async function listTables(openid) {
     .where({
       participantOpenids: _.in([openid])
     })
+    .field({
+      name: true,
+      shareCode: true,
+      ownerOpenid: true,
+      status: true,
+      groupId: true,
+      roundNo: true,
+      previousTableId: true,
+      nextTableId: true,
+      groupStatus: true,
+      groupSettlement: true,
+      settlementStatus: true,
+      createdAt: true,
+      updatedAt: true,
+      endedAt: true,
+      muted: true,
+      settlement: true,
+      players: true
+    })
     .orderBy('createdAt', 'desc')
     .get();
-  return Promise.all(data.map((table) => attachAvatarUrls(table, openid)));
+  return data.map(buildTableListItem);
 }
 
 async function createTable(event, openid) {
@@ -818,6 +875,18 @@ async function deleteTable(event, openid) {
   return true;
 }
 
+async function deleteGroup(event, openid) {
+  const table = await getTableById(event.tableId);
+  if (!table) return { deletedCount: 0 };
+  if (table.ownerOpenid !== openid) throw new Error('只有桌主可以删除牌局');
+
+  const groupTables = await getGroupTables(table);
+  await Promise.all(groupTables.map((item) => (
+    db.collection('tables').doc(item._id || item.id).remove()
+  )));
+  return { deletedCount: groupTables.length };
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   console.log('[tableOps main start]', {
@@ -859,6 +928,8 @@ exports.main = async (event) => {
         return ok(await settleGroup(event, OPENID));
       case 'deleteTable':
         return ok(await deleteTable(event, OPENID));
+      case 'deleteGroup':
+        return ok(await deleteGroup(event, OPENID));
       default:
         return fail('未知操作');
     }

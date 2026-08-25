@@ -22,7 +22,7 @@
         <view class="table-subtitle">
           <text wx:if="{{myPlayer}}">{{myPlayer.name}} 已入座</text>
           <text wx:else>旁观中</text>
-          <text> · {{mode === 'cloud' ? '云同步' : '本地桌'}}</text>
+          <text> · {{mode === 'cloud' ? '云同步' : '云端不可用'}}</text>
         </view>
       </view>
     </view>
@@ -58,8 +58,7 @@
       <view class="player-main">
         <view class="player-name">{{item.name}}</view>
         <view class="score-line {{item.scoreState}}">
-          <text>{{item.scoreLabel}}：</text>
-          <text class="score-num">{{item.absScore}}</text>
+          <text class="score-num">{{item.scoreText}}</text>
         </view>
       </view>
       <view wx:if="{{canGive && item.id !== myPlayer.id}}" class="action-group">
@@ -172,6 +171,6 @@
   </view>
 
   <view class="bottom-actions">
-    <button class="refresh-btn" bindtap="refreshTable">{{mode === 'cloud' ? '同步中，点此手动刷新' : '本地桌，点此刷新'}}</button>
+    <button class="refresh-btn" bindtap="refreshTable">{{mode === 'cloud' ? '同步中，点此手动刷新' : '云端不可用，点此重试'}}</button>
   </view>
 </view>

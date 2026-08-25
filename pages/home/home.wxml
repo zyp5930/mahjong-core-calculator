@@ -121,19 +121,26 @@
           <text>{{item.createdText}} 开始</text>
           <view class="group-actions">
             <text wx:if="{{item.canSettleGroupFromHome}}" class="group-settle-btn" catchtap="settleGroupFromHome" data-id="{{item.settleTableId}}">结算</text>
+            <text class="group-delete-btn" catchtap="deleteGroup" data-id="{{item.settleTableId}}">删除</text>
             <text class="expand-text">{{item.isExpanded ? '收起' : '展开'}}</text>
           </view>
         </view>
       </view>
 
       <view class="round-list" wx:if="{{item.isExpanded}}">
+        <view wx:if="{{item.hasSettlementScores}}" class="round-score-action">
+          <button
+            class="round-score-toggle"
+            catchtap="toggleSettlementScores"
+            data-id="{{item.groupId}}"
+          >{{item.showSettlementScores ? '原始' : '结算'}}</button>
+        </view>
         <view class="round-row" wx:for="{{item.tables}}" wx:for-item="round" wx:key="id" catchtap="openGroupTable" data-id="{{round.id}}">
           <view class="round-head">
             <view class="round-main">
               <text class="round-title">{{round.roundText}}</text>
               <view class="round-meta-line">
                 <text class="round-meta">{{round.createdText}} | {{round.durationText}}</text>
-                <text wx:if="{{round.settlementMultiplier}}" class="round-multiplier">倍率 {{round.settlementMultiplier}}x</text>
               </view>
             </view>
             <view class="round-side">
@@ -141,16 +148,18 @@
               <text class="round-action">进入</text>
             </view>
           </view>
-          <view class="round-players">
-            <view class="round-player" wx:for="{{round.roundPlayers}}" wx:for-item="player" wx:key="id">
-              <image wx:if="{{player.avatarUrl}}" class="round-avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
-              <view wx:else class="round-avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
-              <view class="round-player-main">
-                <text class="round-player-name">{{player.name}}</text>
-                <text class="round-player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.scoreFormula || player.scoreText}}</text>
+          <scroll-view class="round-players-scroll {{round.canScrollRoundPlayers ? 'round-players-scrollable' : ''}}" scroll-x="{{round.canScrollRoundPlayers}}" enable-flex="{{round.canScrollRoundPlayers}}">
+            <view class="round-players round-players-count-{{round.roundPlayerColumnCount}}">
+              <view class="round-player" wx:for="{{round.roundPlayers}}" wx:for-item="player" wx:key="id">
+                <image wx:if="{{player.avatarUrl}}" class="round-avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
+                <view wx:else class="round-avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
+                <view class="round-player-main">
+                  <text class="round-player-name">{{player.name}}</text>
+                  <text class="round-player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.displayScoreText}}</text>
+                </view>
               </view>
             </view>
-          </view>
+          </scroll-view>
         </view>
       </view>
     </view>

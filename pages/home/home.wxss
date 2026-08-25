@@ -594,6 +594,12 @@
   flex: 0 0 auto;
 }
 
+.group-delete-btn {
+  color: #c84636;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
 .expand-text {
   color: #12855a;
   font-weight: 700;
@@ -606,6 +612,30 @@
   border-top: 1rpx solid #f0e6d6;
   position: relative;
   z-index: 1;
+}
+
+.round-score-action {
+  padding: 10rpx 6rpx 14rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.round-score-toggle {
+  min-width: 96rpx;
+  height: 44rpx;
+  margin: 0;
+  padding: 0 18rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 999rpx;
+  background: #f7fffb;
+  color: #12855a;
+  font-size: 26rpx;
+  line-height: 42rpx;
+  font-weight: 700;
+}
+
+.round-score-toggle::after {
+  border: 0;
 }
 
 .round-row {
@@ -649,8 +679,7 @@
   flex-wrap: wrap;
 }
 
-.round-meta,
-.round-multiplier {
+.round-meta {
   color: #9a8c78;
   font-size: 24rpx;
 }
@@ -659,15 +688,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.round-multiplier {
-  height: 36rpx;
-  padding: 0 12rpx;
-  border-radius: 999rpx;
-  background: #f7f1e8;
-  line-height: 36rpx;
-  flex: 0 0 auto;
 }
 
 .round-side {
@@ -702,17 +722,45 @@
   font-weight: 700;
 }
 
+.round-players-scroll {
+  width: 100%;
+}
+
 .round-players {
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.round-players-count-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.round-players-count-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16rpx 20rpx;
+}
+
+.round-players-count-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.round-players-scrollable .round-players {
+  min-width: max-content;
+  display: flex;
+  gap: 18rpx;
 }
 
 .round-player {
   min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12rpx;
+  text-align: center;
+}
+
+.round-players-scrollable .round-player {
+  width: 112rpx;
+  flex: 0 0 112rpx;
 }
 
 .round-avatar {
@@ -728,6 +776,7 @@
 }
 
 .round-player-main {
+  width: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -740,11 +789,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
 }
 
 .round-player-score {
   font-size: 24rpx;
   font-weight: 700;
+  text-align: center;
 }
 
 .sheet-mask {
