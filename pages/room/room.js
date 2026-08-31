@@ -37,7 +37,9 @@ Page({
     canStartNextRound: false,
     canSettleGroup: false,
     canSettleTable: false,
-    tablePendingSettlement: false
+    tablePendingSettlement: false,
+    scoreSaving: false,
+    undoSaving: false
   },
 
   async onLoad(options) {
@@ -698,6 +700,7 @@ Page({
     });
     if (!confirmRes.confirm) return;
 
+    this.setData({ undoSaving: true });
     try {
       const table = await store.undoLastGive(
         this.data.tableId,
@@ -713,6 +716,8 @@ Page({
       }]);
     } catch (error) {
       wx.showToast({ title: error.message || '撤销失败', icon: 'none' });
+    } finally {
+      this.setData({ undoSaving: false });
     }
   },
 
@@ -791,6 +796,7 @@ Page({
       return;
     }
     this.givingScore = true;
+    this.setData({ scoreSaving: true });
     this.tableLoadGeneration = (this.tableLoadGeneration || 0) + 1;
     const optimisticTable = this.buildOptimisticGiveTable(
       previousTable,
@@ -824,6 +830,7 @@ Page({
         this.givingScorePromise = null;
       }
       this.givingScore = false;
+      this.setData({ scoreSaving: false });
     }
   }
 });
