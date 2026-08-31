@@ -120,12 +120,18 @@ Page({
   },
 
   async loadTable() {
+    const loadGeneration = this.tableLoadGeneration || 0;
     try {
+      // A refresh must not read the pre-write snapshot while a score request is pending.
+      if (this.givingScorePromise) {
+        await this.givingScorePromise.catch(() => null);
+      }
       const table = await store.getTable(this.data.tableId);
       if (!table) {
         wx.showToast({ title: '牌局不存在', icon: 'none' });
         return;
       }
+      if (loadGeneration !== (this.tableLoadGeneration || 0)) return;
       this.applyTable(table);
     } catch (error) {
       if (!this.tablePollTimer) {
@@ -785,6 +791,7 @@ Page({
       return;
     }
     this.givingScore = true;
+    this.tableLoadGeneration = (this.tableLoadGeneration || 0) + 1;
     const optimisticTable = this.buildOptimisticGiveTable(
       previousTable,
       myPlayer.id,
@@ -798,19 +805,24 @@ Page({
       id: toastId,
       text: `已给 ${targetPlayer.name || '玩家'} ${amount} 分`
     }]);
-    try {
-      const table = await store.giveScore(
+    const giveScorePromise = store.giveScore(
         this.data.tableId,
         myPlayer.id,
         targetPlayer.id,
         amount
       );
+    this.givingScorePromise = giveScorePromise;
+    try {
+      const table = await giveScorePromise;
       this.applyTable(table);
     } catch (error) {
       if (previousTable) this.applyTable(previousTable);
       this.closeNotice({ currentTarget: { dataset: { id: toastId } } });
       wx.showToast({ title: error.message || '计分失败', icon: 'none' });
     } finally {
+      if (this.givingScorePromise === giveScorePromise) {
+        this.givingScorePromise = null;
+      }
       this.givingScore = false;
     }
   }

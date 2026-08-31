@@ -314,7 +314,7 @@ async function attachAvatarUrls(table, openid, options = {}) {
   }
 }
 
-async function updateTable(tableId, table) {
+async function updateTable(tableId, table, options = {}) {
   const players = (table.players || []).map((player, index) => ({
     id: player.id,
     groupPlayerId: player.groupPlayerId || player.id,
@@ -389,9 +389,12 @@ async function updateTable(tableId, table) {
     write: getWriteSummary(cleanData)
   });
   try {
-    await db.collection('tables').doc(tableId).set({
-      data: cleanData
-    });
+    const collection = (options.transaction || db).collection('tables');
+    if (options.transaction) {
+      await collection.doc(tableId).update({ data: cleanData });
+    } else {
+      await collection.doc(tableId).set({ data: cleanData });
+    }
   } catch (error) {
     logError('[tableOps updateTable set failed]', error, {
       tableId,
@@ -402,7 +405,7 @@ async function updateTable(tableId, table) {
     });
     throw error;
   }
-  return getTableById(tableId);
+  return options.transaction ? table : getTableById(tableId);
 }
 
 async function listTables(openid) {
@@ -541,93 +544,100 @@ async function updateMyProfile(event, openid) {
 }
 
 async function giveScore(event, openid) {
-  const table = await getTableById(event.tableId);
-  if (!table) throw new Error('牌局不存在');
-  if (table.status !== 'active') throw new Error('牌局已结束');
+  if (!db.runTransaction) throw new Error('当前云开发环境不支持事务，请升级 wx-server-sdk');
+  return db.runTransaction(async (transaction) => {
+    const { data: table } = await transaction.collection('tables').doc(event.tableId).get();
+    if (!table) throw new Error('牌局不存在');
+    if (table.status !== 'active') throw new Error('牌局已结束');
 
-  const amount = Number(event.amount);
-  if (!Number.isInteger(amount) || amount <= 0) throw new Error('请输入有效分数');
-  if (event.fromPlayerId === event.toPlayerId) throw new Error('不能给自己计分');
+    const amount = Number(event.amount);
+    if (!Number.isInteger(amount) || amount <= 0) throw new Error('请输入有效分数');
+    if (event.fromPlayerId === event.toPlayerId) throw new Error('不能给自己计分');
 
-  const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
-  const toPlayer = table.players.find((player) => player.id === event.toPlayerId);
-  if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
-  if (fromPlayer.openid !== openid) throw new Error('只能操作你自己的身份');
+    const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
+    const toPlayer = table.players.find((player) => player.id === event.toPlayerId);
+    if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
+    if (fromPlayer.openid !== openid) throw new Error('只能操作你自己的身份');
 
-  fromPlayer.score -= amount;
-  toPlayer.score += amount;
-  table.updatedAt = Date.now();
-  table.records.unshift({
-    id: makeId('record'),
-    fromPlayerId: fromPlayer.id,
-    fromPlayerName: fromPlayer.name,
-    toPlayerId: toPlayer.id,
-    toPlayerName: toPlayer.name,
-    amount,
-    operatorOpenid: openid,
-    createdAt: Date.now(),
-    revoked: false
+    fromPlayer.score -= amount;
+    toPlayer.score += amount;
+    table.updatedAt = Date.now();
+    table.records = table.records || [];
+    table.records.unshift({
+      id: makeId('record'),
+      fromPlayerId: fromPlayer.id,
+      fromPlayerName: fromPlayer.name,
+      toPlayerId: toPlayer.id,
+      toPlayerName: toPlayer.name,
+      amount,
+      operatorOpenid: openid,
+      createdAt: Date.now(),
+      revoked: false
+    });
+    if (toPlayer.openid) {
+      table.notifications = table.notifications || [];
+      table.notifications.unshift(makeNotification(
+        'score',
+        toPlayer.openid,
+        '收到给分',
+        `收到 ${fromPlayer.name} 的 ${amount} 分`,
+        {
+          tableId: event.tableId,
+          fromPlayerId: fromPlayer.id,
+          toPlayerId: toPlayer.id,
+          amount,
+          fromPlayerName: fromPlayer.name,
+          toPlayerName: toPlayer.name
+        }
+      ));
+    }
+    return updateTable(event.tableId, table, { transaction });
   });
-  if (toPlayer.openid) {
-    table.notifications = table.notifications || [];
-    table.notifications.unshift(makeNotification(
-      'score',
-      toPlayer.openid,
-      '收到给分',
-      `收到 ${fromPlayer.name} 的 ${amount} 分`,
-      {
-        tableId: event.tableId,
-        fromPlayerId: fromPlayer.id,
-        toPlayerId: toPlayer.id,
-        amount,
-        fromPlayerName: fromPlayer.name,
-        toPlayerName: toPlayer.name
-      }
-    ));
-  }
-  return updateTable(event.tableId, table);
 }
 
 async function undoLastGive(event, openid) {
-  const table = await getTableById(event.tableId);
-  if (!table) throw new Error('牌局不存在');
-  if (table.status !== 'active') throw new Error('牌局已结束');
+  if (!db.runTransaction) throw new Error('当前云开发环境不支持事务，请升级 wx-server-sdk');
+  return db.runTransaction(async (transaction) => {
+    const { data: table } = await transaction.collection('tables').doc(event.tableId).get();
+    if (!table) throw new Error('牌局不存在');
+    if (table.status !== 'active') throw new Error('牌局已结束');
 
-  const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
-  const toPlayer = table.players.find((player) => player.id === event.toPlayerId);
-  if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
-  if (fromPlayer.openid !== openid) throw new Error('只能操作你自己的身份');
+    const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
+    const toPlayer = table.players.find((player) => player.id === event.toPlayerId);
+    if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
+    if (fromPlayer.openid !== openid) throw new Error('只能操作你自己的身份');
 
-  const record = (table.records || []).find((item) => (
-    !item.revoked &&
-    item.operatorOpenid === openid &&
-    item.fromPlayerId === event.fromPlayerId &&
-    item.toPlayerId === event.toPlayerId
-  ));
-  if (!record) throw new Error('没有可撤销的上次给分');
-
-  fromPlayer.score += record.amount;
-  toPlayer.score -= record.amount;
-  record.revoked = true;
-  record.revokedAt = Date.now();
-  table.updatedAt = Date.now();
-  if (toPlayer.openid) {
-    table.notifications = table.notifications || [];
-    table.notifications.unshift(makeNotification(
-      'undo',
-      toPlayer.openid,
-      '计分已撤销',
-      `${fromPlayer.name} 撤销了给你的 ${record.amount} 分`,
-      {
-        tableId: event.tableId,
-        fromPlayerId: fromPlayer.id,
-        toPlayerId: toPlayer.id,
-        amount: record.amount,
-        recordId: record.id
-      }
+    const record = (table.records || []).find((item) => (
+      !item.revoked &&
+      item.operatorOpenid === openid &&
+      item.fromPlayerId === event.fromPlayerId &&
+      item.toPlayerId === event.toPlayerId
     ));
-  }
-  return updateTable(event.tableId, table);
+    if (!record) throw new Error('没有可撤销的上次给分');
+
+    fromPlayer.score += record.amount;
+    toPlayer.score -= record.amount;
+    record.revoked = true;
+    record.revokedAt = Date.now();
+    table.updatedAt = Date.now();
+    if (toPlayer.openid) {
+      table.notifications = table.notifications || [];
+      table.notifications.unshift(makeNotification(
+        'undo',
+        toPlayer.openid,
+        '计分已撤销',
+        `${fromPlayer.name} 撤销了给你的 ${record.amount} 分`,
+        {
+          tableId: event.tableId,
+          fromPlayerId: fromPlayer.id,
+          toPlayerId: toPlayer.id,
+          amount: record.amount,
+          recordId: record.id
+        }
+      ));
+    }
+    return updateTable(event.tableId, table, { transaction });
+  });
 }
 
 async function toggleMuted(event) {
