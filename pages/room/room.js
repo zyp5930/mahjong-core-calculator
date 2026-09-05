@@ -37,6 +37,11 @@ Page({
     showScoreTrends: false,
     myTrendName: '',
     allTrendPlayers: [],
+    roundTrendTables: [],
+    selectedRoundTrendTableId: '',
+    showRoundTrend: false,
+    roundTrendPlayers: [],
+    roundTrendLoading: false,
     canStartNextRound: false,
     canSettleGroup: false,
     canSettleTable: false,
@@ -86,6 +91,8 @@ Page({
     this.stopWatching();
     this.stopPolling();
     this.clearNoticeToastTimer();
+    this.clearTrendTouchTimers();
+    this.clearTrendRenderTimer();
     this.setData({ noticeToasts: [] });
   },
 
@@ -93,6 +100,8 @@ Page({
     this.stopWatching();
     this.stopPolling();
     this.clearNoticeToastTimer();
+    this.clearTrendTouchTimers();
+    this.clearTrendRenderTimer();
     this.setData({ noticeToasts: [] });
   },
 
@@ -153,7 +162,6 @@ Page({
       : null;
     const settlement = table.settlement || null;
     const groupSettlement = table.groupSettlement || null;
-    const scoreTrends = this.buildScoreTrends(groupSettlement, myPlayer);
     const isOwner = !!myPlayer && table.ownerOpenid === myPlayer.openid;
     const tablePendingSettlement = table.status === 'ended' && table.settlementStatus === 'pending';
     this.setData({
@@ -167,7 +175,6 @@ Page({
       settlementMultiplier: settlement ? settlement.multiplier : '',
       finalScores: settlement ? settlement.finalScores || [] : [],
       groupSettlement,
-      ...scoreTrends,
       tablePendingSettlement,
       canStartNextRound: !!(
         table.status === 'ended' &&
@@ -189,9 +196,7 @@ Page({
       ),
       notices: (table.notifications || []).filter((item) => !myPlayer || !item.targetOpenid || item.targetOpenid === myPlayer.openid)
     });
-    if (scoreTrends.showScoreTrends) {
-      wx.nextTick(() => this.drawScoreTrends(scoreTrends));
-    }
+    this.refreshScoreTrends(table, myPlayer);
     if (!myPlayer && this.data.pendingAutoJoin) {
       this.setData({ pendingAutoJoin: false });
       this.redirectToJoin();
@@ -222,34 +227,219 @@ Page({
     });
   },
 
-  buildScoreTrends(groupSettlement, myPlayer) {
-    const finalScores = (groupSettlement && groupSettlement.finalScores) || [];
-    const roundNos = Array.from(new Set(finalScores.reduce((items, player) => (
-      items.concat((player.roundScores || []).map((round) => Number(round.roundNo) || 1))
-    ), []))).sort((left, right) => left - right);
-    if (!finalScores.length || !roundNos.length) {
+  refreshScoreTrends(table, myPlayer) {
+    this.roundTrendTableCache = this.roundTrendTableCache || {};
+    this.roundTrendTableCache[table.id] = table;
+    const groupId = table.groupId || table.id;
+    const knownTables = (this.groupTrendTables || [])
+      .filter((item) => (item.groupId || item.id) === groupId)
+      .map((item) => (item.id === table.id ? table : item));
+    if (!knownTables.some((item) => item.id === table.id)) knownTables.push(table);
+    this.updateScoreTrends(knownTables, table, myPlayer);
+
+    const refreshKey = [
+      table.id,
+      table.updatedAt,
+      (table.records || []).length,
+      table.settlement && table.settlement.settledAt,
+      table.groupSettlement && table.groupSettlement.settledAt
+    ].join(':');
+    if (refreshKey === this.scoreTrendRefreshKey) return;
+    this.scoreTrendRefreshKey = refreshKey;
+
+    store.listTables()
+      .then((tables) => {
+        if (!this.data.table || this.data.table.id !== table.id) return;
+        const currentTable = this.data.table;
+        const currentGroupId = currentTable.groupId || currentTable.id;
+        const groupTables = (tables || []).filter((item) => (item.groupId || item.id) === currentGroupId);
+        const currentIndex = groupTables.findIndex((item) => item.id === currentTable.id);
+        if (currentIndex >= 0) groupTables[currentIndex] = currentTable;
+        else groupTables.push(currentTable);
+        this.updateScoreTrends(groupTables, currentTable, this.data.myPlayer || myPlayer);
+      })
+      .catch(() => null);
+  },
+
+  updateScoreTrends(tables, currentTable, myPlayer) {
+    const sortedTables = (tables || [])
+      .filter((table) => table && table.id)
+      .map((table) => (this.roundTrendTableCache && this.roundTrendTableCache[table.id]) || table)
+      .sort((left, right) => (
+        (Number(left.roundNo) || 1) - (Number(right.roundNo) || 1) ||
+        (Number(left.createdAt) || 0) - (Number(right.createdAt) || 0)
+      ));
+    this.groupTrendTables = sortedTables;
+
+    let selectedTableId = this.selectedRoundTrendTableId;
+    if (!sortedTables.some((table) => table.id === selectedTableId)) {
+      selectedTableId = currentTable.id;
+    }
+    this.selectedRoundTrendTableId = selectedTableId;
+    const selectedTable = sortedTables.find((table) => table.id === selectedTableId) || currentTable;
+    const roundTrend = this.buildRoundScoreTrend(selectedTable);
+    const groupTrends = this.buildScoreTrends(sortedTables, myPlayer);
+    const trends = { ...groupTrends, ...roundTrend };
+
+    this.setData({
+      ...groupTrends,
+      roundTrendTables: sortedTables.map((table) => ({
+        id: table.id,
+        label: `第${Number(table.roundNo) || 1}局`,
+        selected: table.id === selectedTableId
+      })),
+      selectedRoundTrendTableId: selectedTableId,
+      showRoundTrend: roundTrend.showRoundTrend,
+      roundTrendPlayers: roundTrend.roundTrendPlayers,
+      roundTrendLoading: this.roundTrendLoadingId === selectedTableId
+    }, () => this.drawScoreTrends(trends));
+  },
+
+  selectRoundTrend(event) {
+    const tableId = event.currentTarget.dataset.id;
+    if (!tableId || tableId === this.selectedRoundTrendTableId || !this.data.table) return;
+    this.selectedRoundTrendTableId = tableId;
+    this.roundTrendTableCache = this.roundTrendTableCache || {};
+    if (this.roundTrendTableCache[tableId]) {
+      this.updateScoreTrends(this.groupTrendTables || [this.data.table], this.data.table, this.data.myPlayer);
+      return;
+    }
+
+    this.roundTrendLoadingId = tableId;
+    this.updateScoreTrends(this.groupTrendTables || [this.data.table], this.data.table, this.data.myPlayer);
+    store.getTable(tableId)
+      .then((table) => {
+        if (!table) throw new Error('牌局不存在');
+        this.roundTrendTableCache[tableId] = table;
+        if (this.roundTrendLoadingId === tableId) this.roundTrendLoadingId = null;
+        this.updateScoreTrends(this.groupTrendTables || [this.data.table], this.data.table, this.data.myPlayer);
+      })
+      .catch((error) => {
+        if (this.roundTrendLoadingId === tableId) this.roundTrendLoadingId = null;
+        this.updateScoreTrends(this.groupTrendTables || [this.data.table], this.data.table, this.data.myPlayer);
+        wx.showToast({ title: error.message || '加载对局记录失败', icon: 'none' });
+      });
+  },
+
+  buildRoundScoreTrend(table) {
+    const colors = ['#12855a', '#d85645', '#4e82c8', '#8b6fd9', '#bf7c35', '#4b9f9b'];
+    const players = (table.players || []).map((player, index) => ({
+      id: player.id,
+      name: player.name || `玩家${index + 1}`,
+      color: player.avatarColor || colors[index % colors.length]
+    }));
+    const scores = {};
+    players.forEach((player) => {
+      scores[player.id] = 0;
+    });
+    const records = (table.records || [])
+      .map((record, index) => ({ record, index }))
+      .filter(({ record }) => (
+        record.type !== 'settlement' &&
+        !record.revoked &&
+        Number(record.amount) > 0 &&
+        Object.prototype.hasOwnProperty.call(scores, record.fromPlayerId) &&
+        Object.prototype.hasOwnProperty.call(scores, record.toPlayerId)
+      ))
+      .sort((left, right) => (
+        (Number(left.record.createdAt) || 0) - (Number(right.record.createdAt) || 0) ||
+        right.index - left.index
+      ));
+    const batches = [];
+    records.forEach(({ record }) => {
+      const createdAt = Number(record.createdAt) || 0;
+      const previous = batches[batches.length - 1];
+      if (!previous || createdAt - previous.createdAt > 30 * 1000) {
+        batches.push({ records: [record], createdAt });
+      } else {
+        previous.records.push(record);
+        previous.createdAt = createdAt;
+      }
+    });
+
+    const points = [{ label: '开始', scores: { ...scores }, recordCount: 0 }];
+    batches.forEach((batch, index) => {
+      batch.records.forEach((record) => {
+        const amount = Number(record.amount);
+        scores[record.fromPlayerId] -= amount;
+        scores[record.toPlayerId] += amount;
+      });
+      points.push({
+        label: `第${index + 1}笔`,
+        scores: { ...scores },
+        recordCount: batch.records.length
+      });
+    });
+
+    return {
+      showRoundTrend: points.length > 1,
+      roundTrendPlayers: players,
+      roundTrendLabels: points.map((point) => point.label),
+      roundTrendRecordCounts: points.map((point) => point.recordCount),
+      roundTrendSeries: players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        color: player.color,
+        values: points.map((point) => Number(point.scores[player.id]) || 0)
+      }))
+    };
+  },
+
+  buildScoreTrends(tables, myPlayer) {
+    const settledTables = (tables || [])
+      .filter((table) => table.settlement && (table.settlement.finalScores || []).length)
+      .sort((left, right) => (
+        (Number(left.roundNo) || 1) - (Number(right.roundNo) || 1) ||
+        (Number(left.createdAt) || 0) - (Number(right.createdAt) || 0)
+      ));
+    if (!settledTables.length) {
       return {
         showScoreTrends: false,
         myTrendName: '',
-        allTrendPlayers: []
+        allTrendPlayers: [],
+        trendLabels: [],
+        trendRecordCounts: [],
+        myTrendSeries: [],
+        allTrendSeries: []
       };
     }
 
     const colors = ['#12855a', '#d85645', '#4e82c8', '#8b6fd9', '#bf7c35', '#4b9f9b'];
-    const allSeries = finalScores.map((player, index) => {
-      const scoreByRound = (player.roundScores || []).reduce((scores, round) => {
-        scores[Number(round.roundNo) || 1] = Number(round.score) || 0;
-        return scores;
+    const playerMap = {};
+    const tableScores = {};
+    const trendRecordCounts = {};
+    settledTables.forEach((table) => {
+      const playersById = (table.players || []).reduce((map, player) => {
+        map[player.id] = player;
+        return map;
       }, {});
+      const scores = {};
+      (table.settlement.finalScores || []).forEach((score) => {
+        const player = playersById[score.playerId] || {};
+        const id = score.groupPlayerId || player.groupPlayerId || player.openid || score.playerId;
+        if (!id) return;
+        if (!playerMap[id]) {
+          playerMap[id] = {
+            id,
+            name: score.name || player.name || '玩家',
+            color: player.avatarColor || colors[Object.keys(playerMap).length % colors.length]
+          };
+        }
+        const finalScore = Number(score.finalScore);
+        scores[id] = Number.isFinite(finalScore) ? finalScore : (Number(score.rawScore) || 0);
+      });
+      tableScores[table.id] = scores;
+      trendRecordCounts[table.id] = (table.records || []).filter((record) => (
+        record.type !== 'settlement' && !record.revoked && Number(record.amount) > 0
+      )).length;
+    });
+
+    const allSeries = Object.values(playerMap).map((player) => {
       let total = 0;
-      const deltas = roundNos.map((roundNo) => Number(scoreByRound[roundNo]) || 0);
       return {
-        id: player.groupPlayerId || player.name || String(index),
-        name: player.name || '玩家',
-        color: colors[index % colors.length],
-        deltas,
-        values: deltas.map((delta) => {
-          total += delta;
+        ...player,
+        values: settledTables.map((table) => {
+          total += Number(tableScores[table.id][player.id]) || 0;
           return total;
         })
       };
@@ -267,18 +457,25 @@ Page({
         name: series.name,
         color: series.color
       })),
-      trendRounds: roundNos,
+      trendLabels: settledTables.map((table) => `第${Number(table.roundNo) || 1}局`),
+      trendRecordCounts: settledTables.map((table) => trendRecordCounts[table.id] || 0),
       myTrendSeries: mySeries ? [mySeries] : [],
       allTrendSeries: allSeries
     };
   },
 
   drawScoreTrends(trends) {
-    this.drawTrendChart('my-score-chart', trends.trendRounds, trends.myTrendSeries);
-    this.drawTrendChart('all-score-chart', trends.trendRounds, trends.allTrendSeries);
+    if (trends.showScoreTrends) {
+      this.drawTrendChart('my-score-chart', trends.trendLabels, trends.myTrendSeries, trends.trendRecordCounts);
+      this.drawTrendChart('all-score-chart', trends.trendLabels, trends.allTrendSeries, trends.trendRecordCounts);
+    }
+    if (trends.showRoundTrend) {
+      this.drawTrendChart('round-score-chart', trends.roundTrendLabels, trends.roundTrendSeries, trends.roundTrendRecordCounts);
+    }
   },
 
-  drawTrendChart(canvasId, rounds, series) {
+  drawTrendChart(canvasId, labels, series, recordCounts = []) {
+    if (!labels.length || !series.length) return;
     const query = wx.createSelectorQuery();
     query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((result) => {
       const canvasInfo = result && result[0];
@@ -304,9 +501,9 @@ Page({
       const domainMin = minValue - padding;
       const domainMax = maxValue + padding;
       const domainRange = domainMax - domainMin;
-      const xAt = (index) => rounds.length <= 1
+      const xAt = (index) => labels.length <= 1
         ? margin.left + chartWidth / 2
-        : margin.left + (chartWidth * index) / (rounds.length - 1);
+        : margin.left + (chartWidth * index) / (labels.length - 1);
       const yAt = (value) => margin.top + ((domainMax - value) / domainRange) * chartHeight;
       const formatScore = (value) => {
         const rounded = Math.round(value * 10) / 10;
@@ -354,24 +551,169 @@ Page({
           else context.lineTo(x, y);
         });
         context.stroke();
-        item.values.forEach((value, index) => {
-          context.fillStyle = '#fffdf8';
-          context.beginPath();
-          context.arc(xAt(index), yAt(value), 4, 0, Math.PI * 2);
-          context.fill();
-          context.strokeStyle = item.color;
-          context.lineWidth = 2;
-          context.stroke();
-        });
       });
 
       context.fillStyle = '#829087';
       context.textAlign = 'center';
       context.textBaseline = 'top';
-      rounds.forEach((roundNo, index) => {
-        context.fillText(`第${roundNo}局`, xAt(index), height - margin.bottom + 14);
-      });
+      const labelCount = Math.min(5, labels.length);
+      for (let labelIndex = 0; labelIndex < labelCount; labelIndex += 1) {
+        const index = labelCount <= 1
+          ? 0
+          : Math.round(labelIndex * (labels.length - 1) / (labelCount - 1));
+        context.fillText(labels[index], xAt(index), height - margin.bottom + 14);
+      }
+
+      this.trendChartMeta = this.trendChartMeta || {};
+      this.trendChartMeta[canvasId] = { labels, series, recordCounts, margin, chartWidth, xAt };
+      const selectedIndex = this.trendSelectedIndexes && this.trendSelectedIndexes[canvasId];
+      if (Number.isInteger(selectedIndex) && selectedIndex >= 0 && selectedIndex < labels.length) {
+        this.drawTrendTooltip(
+          context,
+          width,
+          margin,
+          xAt(selectedIndex),
+          labels[selectedIndex],
+          series,
+          selectedIndex,
+          recordCounts[selectedIndex]
+        );
+      }
     });
+  },
+
+  drawTrendTooltip(context, width, margin, selectedX, label, series, selectedIndex, recordCount) {
+    const boxWidth = Math.min(188, width - 20);
+    const hasRecordCount = Number(recordCount) > 0;
+    const detailOffset = hasRecordCount ? 18 : 0;
+    const boxHeight = 28 + detailOffset + series.length * 18;
+    const boxX = selectedX + boxWidth + 8 > width ? width - boxWidth - 10 : selectedX + 8;
+    const boxY = margin.top + 4;
+    context.strokeStyle = '#aab7af';
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(selectedX, margin.top);
+    context.lineTo(selectedX, boxY + boxHeight + 8);
+    context.stroke();
+    context.fillStyle = 'rgba(31, 42, 36, 0.94)';
+    context.fillRect(boxX, boxY, boxWidth, boxHeight);
+    context.textAlign = 'left';
+    context.textBaseline = 'alphabetic';
+    context.font = '12px sans-serif';
+    context.fillStyle = '#ffffff';
+    context.fillText(label, boxX + 10, boxY + 18);
+    if (hasRecordCount) {
+      context.fillStyle = '#b9c8bf';
+      context.font = '10px sans-serif';
+      context.fillText(`${recordCount}次给分`, boxX + 10, boxY + 36);
+    }
+    context.font = '12px sans-serif';
+    series.forEach((item, index) => {
+      const value = item.values[selectedIndex];
+      context.fillStyle = item.color;
+      context.fillText(`${item.name}: ${this.formatTrendScore(value)}`, boxX + 10, boxY + 36 + detailOffset + index * 18);
+    });
+  },
+
+  formatTrendScore(value) {
+    const rounded = Math.round((Number(value) || 0) * 10) / 10;
+    return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  },
+
+  onTrendTouchStart(event) {
+    const chartId = event.currentTarget.dataset.chartId;
+    const touch = this.getTrendTouch(event);
+    if (!chartId || !touch) return;
+    this.clearTrendTouchTimers();
+    this.trendTouchState = { chartId, startX: touch.x, dragging: false };
+    this.trendLongPressTimer = setTimeout(() => {
+      if (!this.trendTouchState || this.trendTouchState.chartId !== chartId) return;
+      this.trendTouchState.dragging = true;
+      this.selectTrendPoint(chartId, this.trendTouchState.startX);
+    }, 350);
+  },
+
+  onTrendLongPress(event) {
+    const chartId = event.currentTarget.dataset.chartId;
+    const touch = this.getTrendTouch(event);
+    if (!chartId || !touch) return;
+    if (this.trendLongPressTimer) clearTimeout(this.trendLongPressTimer);
+    this.trendLongPressTimer = null;
+    this.trendTouchState = { chartId, startX: touch.x, dragging: true };
+    this.selectTrendPoint(chartId, touch.x);
+  },
+
+  onTrendTouchMove(event) {
+    const touch = this.getTrendTouch(event);
+    const state = this.trendTouchState;
+    if (!touch || !state || !state.dragging) return;
+    this.selectTrendPoint(state.chartId, touch.x);
+  },
+
+  onTrendTouchEnd() {
+    const wasSelecting = !!(this.trendTouchState && this.trendTouchState.dragging);
+    this.clearTrendTouchTimers();
+    // Prevent the synthetic tap emitted when a long press is released from clearing its tooltip.
+    if (wasSelecting) this.trendTapSuppressedUntil = Date.now() + 250;
+  },
+
+  keepTrendSelection() {},
+
+  getTrendTouch(event) {
+    const touch = (event.touches || event.changedTouches || [])[0];
+    if (!touch) return null;
+    return { x: Number(touch.x) || 0 };
+  },
+
+  selectTrendPoint(chartId, x) {
+    const meta = this.trendChartMeta && this.trendChartMeta[chartId];
+    if (!meta || !meta.labels.length) return;
+    const ratio = meta.labels.length <= 1 ? 0 : (x - meta.margin.left) / meta.chartWidth;
+    const index = Math.max(0, Math.min(meta.labels.length - 1, Math.round(ratio * (meta.labels.length - 1))));
+    this.trendSelectedIndexes = this.trendSelectedIndexes || {};
+    if (this.trendSelectedIndexes[chartId] === index) return;
+    this.trendSelectedIndexes[chartId] = index;
+    this.queueTrendRender(chartId);
+  },
+
+  queueTrendRender(chartId) {
+    this.trendPendingChartIds = this.trendPendingChartIds || {};
+    this.trendPendingChartIds[chartId] = true;
+    if (this.trendRenderTimer) return;
+    this.trendRenderTimer = setTimeout(() => {
+      this.trendRenderTimer = null;
+      const pendingChartIds = Object.keys(this.trendPendingChartIds || {});
+      this.trendPendingChartIds = {};
+      pendingChartIds.forEach((id) => {
+        const meta = this.trendChartMeta && this.trendChartMeta[id];
+        if (meta) this.drawTrendChart(id, meta.labels, meta.series, meta.recordCounts);
+      });
+    }, 16);
+  },
+
+  clearTrendSelection() {
+    if (Date.now() < (this.trendTapSuppressedUntil || 0)) return;
+    this.clearTrendTouchTimers();
+    if (!this.trendSelectedIndexes || !Object.keys(this.trendSelectedIndexes).length) return;
+    this.clearTrendRenderTimer();
+    const selectedChartIds = Object.keys(this.trendSelectedIndexes);
+    this.trendSelectedIndexes = {};
+    selectedChartIds.forEach((chartId) => {
+      const meta = this.trendChartMeta && this.trendChartMeta[chartId];
+      if (meta) this.drawTrendChart(chartId, meta.labels, meta.series, meta.recordCounts);
+    });
+  },
+
+  clearTrendTouchTimers() {
+    if (this.trendLongPressTimer) clearTimeout(this.trendLongPressTimer);
+    this.trendLongPressTimer = null;
+    this.trendTouchState = null;
+  },
+
+  clearTrendRenderTimer() {
+    if (this.trendRenderTimer) clearTimeout(this.trendRenderTimer);
+    this.trendRenderTimer = null;
+    this.trendPendingChartIds = {};
   },
 
   buildPlayers(players, settlement) {

@@ -128,6 +128,12 @@ Page({
   openRound(event) {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
-    wx.navigateTo({ url: `/pages/room/room?id=${id}` });
+    wx.navigateTo({
+      url: `/pages/room/room?id=${id}`,
+      fail: (error) => {
+        console.error('[group-detail openRound error]', error);
+        wx.showToast({ title: '暂时无法进入该对局', icon: 'none' });
+      }
+    });
   }
 });

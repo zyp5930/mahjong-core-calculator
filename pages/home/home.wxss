@@ -387,6 +387,12 @@
 
 .group-card {
   padding: 0;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.group-card-press {
+  transform: translateY(6rpx) scale(0.992);
+  box-shadow: 0 10rpx 22rpx rgba(96, 69, 34, 0.1);
 }
 
 .group-main {

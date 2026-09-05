@@ -17,7 +17,7 @@
           </view>
           <view class="round-side">
             <text class="round-status {{item.status}}">{{item.statusText}}</text>
-            <text class="round-action">进入</text>
+            <text class="round-action" catchtap="openRound" data-id="{{item.id}}">进入</text>
           </view>
         </view>
         <scroll-view class="players-scroll {{item.canScrollPlayers ? 'players-scrollable' : ''}}" scroll-x="{{item.canScrollPlayers}}" enable-flex="{{item.canScrollPlayers}}">

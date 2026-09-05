@@ -1,4 +1,4 @@
-<view class="room-page">
+<view class="room-page" bindtap="clearTrendSelection">
   <view class="toolbar">
     <button class="tool invite-tool" bindtap="openInvite">
       <text class="tool-icon">邀</text>
@@ -145,17 +145,66 @@
     </view>
   </view>
 
-  <view class="score-trends" wx:if="{{showScoreTrends}}">
-    <view class="trend-panel card">
+  <view class="score-trends" wx:if="{{showScoreTrends || roundTrendTables.length}}">
+    <view class="trend-panel card" wx:if="{{showScoreTrends}}">
       <view class="trend-title">我的分数走势</view>
       <view class="trend-legend">
         <text class="trend-dot my-dot"></text>
         <text>{{myTrendName}}</text>
       </view>
-      <canvas type="2d" id="my-score-chart" class="trend-canvas"></canvas>
+      <canvas
+        type="2d"
+        id="my-score-chart"
+        class="trend-canvas"
+        data-chart-id="my-score-chart"
+        catchtap="keepTrendSelection"
+        catchtouchstart="onTrendTouchStart"
+        catchtouchmove="onTrendTouchMove"
+        catchtouchend="onTrendTouchEnd"
+        catchtouchcancel="onTrendTouchEnd"
+        catchlongpress="onTrendLongPress"
+        catchlongtap="onTrendLongPress"
+      ></canvas>
     </view>
 
-    <view class="trend-panel card">
+    <view class="trend-panel card" wx:if="{{roundTrendTables.length}}">
+      <view class="trend-title">单局给分走势</view>
+      <scroll-view class="round-trend-tabs" scroll-x="true" enable-flex="true">
+        <view class="round-trend-tab-list">
+          <view
+            wx:for="{{roundTrendTables}}"
+            wx:key="id"
+            class="round-trend-tab {{item.selected ? 'selected' : ''}}"
+            bindtap="selectRoundTrend"
+            data-id="{{item.id}}"
+          >{{item.label}}</view>
+        </view>
+      </scroll-view>
+      <view class="trend-legend all-trend-legend" wx:if="{{showRoundTrend}}">
+        <view wx:for="{{roundTrendPlayers}}" wx:key="id" class="trend-legend-item">
+          <text class="trend-dot" style="background: {{item.color}}"></text>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+      <view wx:if="{{roundTrendLoading}}" class="trend-empty">正在加载本局给分记录</view>
+      <canvas
+        wx:elif="{{showRoundTrend}}"
+        type="2d"
+        id="round-score-chart"
+        class="trend-canvas"
+        data-chart-id="round-score-chart"
+        catchtap="keepTrendSelection"
+        catchtouchstart="onTrendTouchStart"
+        catchtouchmove="onTrendTouchMove"
+        catchtouchend="onTrendTouchEnd"
+        catchtouchcancel="onTrendTouchEnd"
+        catchlongpress="onTrendLongPress"
+        catchlongtap="onTrendLongPress"
+      ></canvas>
+      <view wx:else class="trend-empty">本局还没有有效给分记录</view>
+    </view>
+
+    <view class="trend-panel card" wx:if="{{showScoreTrends}}">
       <view class="trend-title">全员分数走势</view>
       <view class="trend-legend all-trend-legend">
         <view wx:for="{{allTrendPlayers}}" wx:key="id" class="trend-legend-item">
@@ -163,7 +212,19 @@
           <text>{{item.name}}</text>
         </view>
       </view>
-      <canvas type="2d" id="all-score-chart" class="trend-canvas"></canvas>
+      <canvas
+        type="2d"
+        id="all-score-chart"
+        class="trend-canvas"
+        data-chart-id="all-score-chart"
+        catchtap="keepTrendSelection"
+        catchtouchstart="onTrendTouchStart"
+        catchtouchmove="onTrendTouchMove"
+        catchtouchend="onTrendTouchEnd"
+        catchtouchcancel="onTrendTouchEnd"
+        catchlongpress="onTrendLongPress"
+        catchlongtap="onTrendLongPress"
+      ></canvas>
     </view>
   </view>
 

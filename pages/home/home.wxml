@@ -94,7 +94,15 @@
 
   <view class="section-title recent-title">最近对局</view>
   <block wx:if="{{tableGroups.length}}">
-    <view class="group-card card" wx:for="{{tableGroups}}" wx:key="groupId">
+    <view
+      class="group-card card"
+      wx:for="{{tableGroups}}"
+      wx:key="groupId"
+      data-id="{{item.groupId}}"
+      bindtap="openGroupDetail"
+      hover-class="group-card-press"
+      hover-stay-time="80"
+    >
       <view class="group-main">
         <view class="table-top">
           <view class="group-title-wrap">
