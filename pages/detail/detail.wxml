@@ -1,4 +1,4 @@
-<view class="page detail-page">
+<view class="page detail-page" bindtap="clearTrendSelection">
   <view wx:if="{{table.id}}">
     <view class="summary card">
       <view>
@@ -6,6 +6,32 @@
         <view class="muted">分享码：{{table.shareCode}}</view>
       </view>
       <view class="status {{table.status}}">{{table.statusText}}</view>
+    </view>
+
+    <view class="trend card">
+      <view class="trend-header">
+        <view class="rank-title">分数走势</view>
+        <view class="trend-hint">局内变化 · 同时段给分合并</view>
+      </view>
+      <view class="trend-legend">
+        <view class="legend-item" wx:for="{{trendPlayers}}" wx:key="id">
+          <view class="legend-dot" style="background: {{item.color}}"></view>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+      <view wx:if="{{trendHasRecords}}" class="trend-canvas-wrap">
+        <canvas
+          id="scoreTrendCanvas"
+          type="2d"
+          class="trend-canvas"
+          catchtap="onTrendTap"
+          catchtouchstart="onTrendTouchStart"
+          catchtouchmove="onTrendTouchMove"
+          catchtouchend="onTrendTouchEnd"
+          catchtouchcancel="onTrendTouchEnd"
+        ></canvas>
+      </view>
+      <view wx:else class="trend-empty">完成第一笔计分后显示走势</view>
     </view>
 
     <view class="record-list">
