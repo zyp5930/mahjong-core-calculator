@@ -710,6 +710,12 @@
   line-height: 88rpx;
 }
 
+.refresh-btn.refresh-disabled {
+  opacity: 0.45;
+  color: #8b867a;
+  background: #e5e1d7;
+}
+
 .sheet-player {
   display: flex;
   align-items: center;

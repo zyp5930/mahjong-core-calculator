@@ -35,6 +35,81 @@
   padding: 30rpx;
 }
 
+.trend {
+  margin-top: 24rpx;
+  padding: 30rpx;
+  overflow: hidden;
+}
+
+.trend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trend-header .rank-title {
+  margin-bottom: 0;
+}
+
+.trend-hint {
+  color: #8a9690;
+  font-size: 24rpx;
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx 24rpx;
+  margin: 22rpx 0 8rpx;
+  color: #526159;
+  font-size: 24rpx;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  max-width: 45%;
+}
+
+.legend-item text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  margin-right: 8rpx;
+  border-radius: 50%;
+  flex: none;
+}
+
+.trend-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 440rpx;
+  margin-top: 8rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.trend-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.trend-empty {
+  padding: 90rpx 0 70rpx;
+  color: #8a9690;
+  font-size: 26rpx;
+  text-align: center;
+}
+
 .rank-title {
   margin-bottom: 18rpx;
   color: #526159;

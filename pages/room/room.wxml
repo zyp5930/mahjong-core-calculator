@@ -168,6 +168,6 @@
   </view>
 
   <view class="bottom-actions">
-    <button class="refresh-btn" bindtap="refreshTable">{{mode === 'cloud' ? '同步中，点此手动刷新' : '云端不可用，点此重试'}}</button>
+    <button class="refresh-btn {{scoreSaving || undoSaving ? 'refresh-disabled' : ''}}" bindtap="refreshTable" disabled="{{scoreSaving || undoSaving}}">{{scoreSaving ? '正在给分，请勿刷新' : (undoSaving ? '正在撤销，请勿刷新' : (mode === 'cloud' ? '点此手动刷新' : '云端不可用，点此重试'))}}</button>
   </view>
 </view>
