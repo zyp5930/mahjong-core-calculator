@@ -1,0 +1,37 @@
+<view class="page group-detail-page">
+  <view wx:if="{{group}}">
+    <view class="summary card">
+      <view>
+        <view class="summary-title">{{group.name}}</view>
+        <view class="muted">共 {{group.tableCount}} 局</view>
+      </view>
+      <text class="status {{group.status}}">{{group.statusText}}</text>
+    </view>
+
+    <view class="round-list card">
+      <view class="round-row" wx:for="{{group.rounds}}" wx:key="id" bindtap="openRound" data-id="{{item.id}}" hover-class="round-press" hover-stay-time="80">
+        <view class="round-head">
+          <view>
+            <text class="round-title">{{item.roundText}}</text>
+            <text class="round-meta">{{item.createdText}} | {{item.durationText}}</text>
+          </view>
+          <view class="round-side">
+            <text class="round-status {{item.status}}">{{item.statusText}}</text>
+            <text class="round-action">进入</text>
+          </view>
+        </view>
+        <scroll-view class="players-scroll {{item.canScrollPlayers ? 'players-scrollable' : ''}}" scroll-x="{{item.canScrollPlayers}}" enable-flex="{{item.canScrollPlayers}}">
+          <view class="players players-count-{{item.playerColumnCount}}">
+            <view class="player" wx:for="{{item.players}}" wx:for-item="player" wx:key="id">
+              <image wx:if="{{player.avatarUrl}}" class="avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
+              <view wx:else class="avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
+              <text class="player-name">{{player.name}}</text>
+              <text class="player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.scoreText}}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+  </view>
+  <view wx:elif="{{!loading}}" class="empty card">找不到这组对局</view>
+</view>

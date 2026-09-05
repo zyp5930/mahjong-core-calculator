@@ -3,15 +3,49 @@ const { formatDuration, formatTime, normalizeScore } = require('../../utils/form
 
 function getLoadErrorState(error) {
   const message = String((error && (error.errMsg || error.message)) || '');
+  const normalizedMessage = message.toLowerCase();
   if ((error && error.errCode === -504003) || message.includes('timed out')) {
     return {
       title: '云端同步超时',
       subtitle: '对局数据暂未加载，请稍后再试。'
     };
   }
+  if (
+    normalizedMessage.includes('function not found') ||
+    normalizedMessage.includes('functionname') ||
+    normalizedMessage.includes('function name') ||
+    message.includes('云函数 login 未部署')
+  ) {
+    return {
+      title: '云登录服务未部署',
+      subtitle: '请在微信开发者工具中上传并部署 cloudfunctions/login。'
+    };
+  }
+  if (
+    normalizedMessage.includes('environment') ||
+    normalizedMessage.includes('env') ||
+    normalizedMessage.includes('invalid cloudbase') ||
+    message.includes('云环境未初始化')
+  ) {
+    return {
+      title: '云环境不可用',
+      subtitle: '请确认 app.js 中的云环境 ID 与当前小程序 AppID 已关联。'
+    };
+  }
+  if (
+    normalizedMessage.includes('network') ||
+    normalizedMessage.includes('network error') ||
+    normalizedMessage.includes('request:fail') ||
+    normalizedMessage.includes('fail timeout')
+  ) {
+    return {
+      title: '网络连接失败',
+      subtitle: '请检查手机网络后，重新进入首页刷新。'
+    };
+  }
   return {
-    title: '对局加载失败',
-    subtitle: '暂时无法同步对局，请稍后再试。'
+    title: '云端连接失败',
+    subtitle: '请检查云函数 login 和 tableOps 是否已部署到当前云环境。'
   };
 }
 
@@ -25,7 +59,6 @@ Page({
       activeGroups: 0,
       pendingGroups: 0
     },
-    expandedGroupIds: {},
     settlementScoreGroupIds: {},
     mode: 'unknown',
     modeText: '检测中',
@@ -43,6 +76,7 @@ Page({
       mode: store.getStoredMode(),
       modeText: store.getStoredMode() === 'cloud' ? '云同步模式' : '云端检测中'
     });
+    let loginError = null;
     try {
       const me = await store.ensureMe();
       const mode = me.mode || store.getStoredMode();
@@ -52,10 +86,21 @@ Page({
       });
     } catch (error) {
       console.error('[home ensureMe error]', error);
+      loginError = error;
       this.setData({
         mode: 'error',
         modeText: '云端不可用'
       });
+    }
+    if (loginError) {
+      const errorState = getLoadErrorState(loginError);
+      this.setData({
+        loadingTables: false,
+        loadErrorText: errorState.title,
+        emptyTitle: errorState.title,
+        emptySubtitle: errorState.subtitle
+      });
+      return;
     }
     await this.loadTables();
   },
@@ -183,15 +228,17 @@ Page({
       .sort((left, right) => right.score - left.score);
   },
 
-  buildRoundPlayers(tables) {
+  buildRoundPlayers(tables, showSettlementScores) {
     return tables.map((table) => {
       const roundPlayers = (table.roundPlayers || table.players || []).map((player) => {
         const rawScore = Number(player.rawScore) || 0;
+        const settledScore = Number(player.settledScore) || 0;
+        const displayScore = showSettlementScores ? settledScore : rawScore;
         return {
           ...player,
-          score: rawScore,
-          scoreText: this.formatScoreText(rawScore),
-          displayScoreText: this.formatScoreText(rawScore)
+          score: displayScore,
+          scoreText: this.formatScoreText(displayScore),
+          displayScoreText: this.formatScoreText(displayScore)
         };
       });
       return {
@@ -235,7 +282,6 @@ Page({
   },
 
   buildTableGroups(tables) {
-    const expandedGroupIds = this.data.expandedGroupIds || {};
     const settlementScoreGroupIds = this.data.settlementScoreGroupIds || {};
     const groupMap = tables.reduce((map, table) => {
       const groupId = table.groupId || table.id;
@@ -267,7 +313,7 @@ Page({
         !!(table.settlement && (table.settlement.finalScores || []).length)
       ));
       const showSettlementScores = hasSettlementScores && !!settlementScoreGroupIds[group.groupId];
-      const displayTables = this.buildRoundPlayers(tablesWithDuration);
+      const displayTables = this.buildRoundPlayers(tablesWithDuration, showSettlementScores);
       const activeTable = displayTables.slice().reverse().find((table) => table.status === 'active');
       const latestTable = displayTables[displayTables.length - 1];
       const displayTable = activeTable || latestTable || displayTables[0];
@@ -296,7 +342,6 @@ Page({
         status,
         statusText,
         isSettled,
-        isExpanded: !!expandedGroupIds[group.groupId],
         hasSettlementScores,
         showSettlementScores,
         activeTableId: activeTable ? activeTable.id : '',
@@ -323,18 +368,15 @@ Page({
     }).sort((left, right) => right.updatedAt - left.updatedAt);
   },
 
-  toggleGroup(event) {
+  openGroupDetail(event) {
     const groupId = event.currentTarget.dataset.id;
     if (!groupId) return;
-    this.setData({
-      expandedGroupIds: {
-        ...this.data.expandedGroupIds,
-        [groupId]: !this.data.expandedGroupIds[groupId]
+    wx.navigateTo({
+      url: `/pages/group-detail/group-detail?groupId=${groupId}`,
+      success: (result) => {
+        const group = (this.data.tableGroups || []).find((item) => item.groupId === groupId);
+        if (group) result.eventChannel.emit('groupTables', { tables: group.tables });
       }
-    }, () => {
-      this.setData({
-        tableGroups: this.buildTableGroups(this.data.tables)
-      });
     });
   },
 
@@ -347,16 +389,8 @@ Page({
         [groupId]: !this.data.settlementScoreGroupIds[groupId]
       }
     }, () => {
-      this.setData({
-        tableGroups: this.buildTableGroups(this.data.tables)
-      });
+      this.setData({ tableGroups: this.buildTableGroups(this.data.tables) });
     });
-  },
-
-  openGroupTable(event) {
-    const id = event.currentTarget.dataset.id;
-    if (!id) return;
-    this.openTableById(id);
   },
 
   openTable(event) {

@@ -408,7 +408,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 28rpx;
 }
 
 .table-name {
@@ -449,6 +449,27 @@
 .status.ended {
   background: #eef1ef;
   color: #7b8680;
+}
+
+.group-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.group-score-toggle {
+  height: 42rpx;
+  min-width: 78rpx;
+  padding: 0 14rpx;
+  border: 1rpx solid #d8ebe2;
+  border-radius: 999rpx;
+  background: #e1f1e8;
+  color: #12855a;
+  font-size: 26rpx;
+  line-height: 40rpx;
+  font-weight: 700;
+  text-align: center;
 }
 
 .group-stats {
@@ -596,12 +617,14 @@
 
 .group-delete-btn {
   color: #c84636;
+  font-size: 26rpx;
   font-weight: 700;
   flex: 0 0 auto;
 }
 
 .expand-text {
   color: #12855a;
+  font-size: 26rpx;
   font-weight: 700;
   flex: 0 0 auto;
 }
@@ -617,17 +640,18 @@
 .round-score-action {
   padding: 10rpx 6rpx 14rpx;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .round-score-toggle {
-  min-width: 96rpx;
+  width: 240rpx;
+  min-width: 0;
   height: 44rpx;
   margin: 0;
   padding: 0 18rpx;
   border: 1rpx solid #d8ebe2;
   border-radius: 999rpx;
-  background: #f7fffb;
+  background: #e1f1e8;
   color: #12855a;
   font-size: 26rpx;
   line-height: 42rpx;

@@ -95,13 +95,20 @@
   <view class="section-title recent-title">最近对局</view>
   <block wx:if="{{tableGroups.length}}">
     <view class="group-card card" wx:for="{{tableGroups}}" wx:key="groupId">
-      <view class="group-main" bindtap="toggleGroup" data-id="{{item.groupId}}" hover-class="card-press" hover-stay-time="80">
+      <view class="group-main">
         <view class="table-top">
           <view class="group-title-wrap">
             <text class="table-name">{{item.name}}</text>
-            <text class="group-count">{{item.tableCount}}局</text>
+            <text
+              wx:if="{{item.hasSettlementScores}}"
+              class="group-score-toggle"
+              catchtap="toggleSettlementScores"
+              data-id="{{item.groupId}}"
+            >{{item.showSettlementScores ? '原始' : '结算'}}</text>
           </view>
-          <text class="status {{item.status}}">{{item.statusText}}</text>
+          <view class="group-status-actions">
+            <text class="status {{item.status}}">{{item.statusText}}</text>
+          </view>
         </view>
         <view class="group-stats">
           <text>{{item.summaryText}}</text>
@@ -122,44 +129,8 @@
           <view class="group-actions">
             <text wx:if="{{item.canSettleGroupFromHome}}" class="group-settle-btn" catchtap="settleGroupFromHome" data-id="{{item.settleTableId}}">结算</text>
             <text class="group-delete-btn" catchtap="deleteGroup" data-id="{{item.settleTableId}}">删除</text>
-            <text class="expand-text">{{item.isExpanded ? '收起' : '展开'}}</text>
+            <text class="expand-text" catchtap="openGroupDetail" data-id="{{item.groupId}}">详情</text>
           </view>
-        </view>
-      </view>
-
-      <view class="round-list" wx:if="{{item.isExpanded}}">
-        <view wx:if="{{item.hasSettlementScores}}" class="round-score-action">
-          <button
-            class="round-score-toggle"
-            catchtap="toggleSettlementScores"
-            data-id="{{item.groupId}}"
-          >{{item.showSettlementScores ? '原始' : '结算'}}</button>
-        </view>
-        <view class="round-row" wx:for="{{item.tables}}" wx:for-item="round" wx:key="id" catchtap="openGroupTable" data-id="{{round.id}}">
-          <view class="round-head">
-            <view class="round-main">
-              <text class="round-title">{{round.roundText}}</text>
-              <view class="round-meta-line">
-                <text class="round-meta">{{round.createdText}} | {{round.durationText}}</text>
-              </view>
-            </view>
-            <view class="round-side">
-              <text class="round-status {{round.status}}">{{round.statusText}}</text>
-              <text class="round-action">进入</text>
-            </view>
-          </view>
-          <scroll-view class="round-players-scroll {{round.canScrollRoundPlayers ? 'round-players-scrollable' : ''}}" scroll-x="{{round.canScrollRoundPlayers}}" enable-flex="{{round.canScrollRoundPlayers}}">
-            <view class="round-players round-players-count-{{round.roundPlayerColumnCount}}">
-              <view class="round-player" wx:for="{{round.roundPlayers}}" wx:for-item="player" wx:key="id">
-                <image wx:if="{{player.avatarUrl}}" class="round-avatar image-avatar" src="{{player.avatarUrl}}" mode="aspectFill"></image>
-                <view wx:else class="round-avatar" style="background: {{player.avatarColor}}">{{player.initial}}</view>
-                <view class="round-player-main">
-                  <text class="round-player-name">{{player.name}}</text>
-                  <text class="round-player-score {{player.score >= 0 ? 'win' : 'lose'}}">{{player.displayScoreText}}</text>
-                </view>
-              </view>
-            </view>
-          </scroll-view>
         </view>
       </view>
     </view>

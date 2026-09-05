@@ -8,33 +8,9 @@
       <view class="status {{table.status}}">{{table.statusText}}</view>
     </view>
 
-    <view class="rank card">
-      <view class="rank-title">当前战绩</view>
-      <view class="rank-row" wx:for="{{players}}" wx:key="id">
-        <text>{{item.name}}</text>
-        <text class="{{item.score >= 0 ? 'win' : 'lose'}}">{{item.score}}</text>
-      </view>
-    </view>
-
-    <view class="rank card" wx:if="{{table.status === 'ended' && settlement}}">
-      <view class="rank-title">结算结果</view>
-      <view class="rank-row" wx:for="{{settlement.finalScores}}" wx:key="playerId">
-        <text>{{item.name}}</text>
-        <text>{{item.rawScore}} × {{settlement.multiplier}} = {{item.finalScore}}</text>
-      </view>
-    </view>
-
     <view class="record-list">
       <view class="record card" wx:for="{{records}}" wx:key="id">
-        <view class="record-main" wx:if="{{item.isSettlement}}">
-          <text>牌局结算</text>
-          <text class="muted"> 倍率 </text>
-          <text class="amount">{{item.multiplier}}</text>
-          <text wx:for="{{item.finalScores}}" wx:for-item="score" wx:key="playerId" class="settlement-detail">
-            {{score.name}}：{{score.rawScore}}×{{item.multiplier}}={{score.finalScore}}
-          </text>
-        </view>
-        <view class="record-main" wx:else>
+        <view class="record-main">
           <text>{{item.fromPlayerName}}</text>
           <text class="muted"> 给 </text>
           <text>{{item.toPlayerName}}</text>

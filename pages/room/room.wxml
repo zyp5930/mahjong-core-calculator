@@ -69,8 +69,6 @@
     </view>
   </view>
 
-  <view class="ended-mask" wx:if="{{table.status === 'ended'}}">{{tablePendingSettlement ? '牌局已结束，待结算' : '牌局已结束，仅可查看'}}</view>
-
   <view class="next-round-panel" wx:if="{{canStartNextRound}}">
     <view class="next-round-text">
       <text class="next-round-title">{{table.nextTableId ? '下一局已开启' : '继续本组对局'}}</text>
@@ -147,26 +145,25 @@
     </view>
   </view>
 
-  <view class="settlement-panel" wx:if="{{table && table.status === 'ended' && finalScores.length}}">
-    <view class="settlement-panel-title">结算结果</view>
-    <view class="settlement-panel-meta">倍率：{{settlementMultiplier}}x</view>
-    <view class="settlement-row" wx:for="{{finalScores}}" wx:key="playerId">
-      <text>{{item.name}}</text>
-      <text>{{item.rawScore}} × {{settlementMultiplier}} = {{item.finalScore}}</text>
+  <view class="score-trends" wx:if="{{showScoreTrends}}">
+    <view class="trend-panel card">
+      <view class="trend-title">我的分数走势</view>
+      <view class="trend-legend">
+        <text class="trend-dot my-dot"></text>
+        <text>{{myTrendName}}</text>
+      </view>
+      <canvas type="2d" id="my-score-chart" class="trend-canvas"></canvas>
     </view>
-  </view>
 
-  <view class="settlement-panel group-settlement-panel" wx:if="{{groupSettlement && groupSettlement.finalScores.length}}">
-    <view class="settlement-panel-title">所有对局结算</view>
-    <view class="settlement-panel-meta">共 {{groupSettlement.tableCount}} 局</view>
-    <view class="group-settlement-row" wx:for="{{groupSettlement.finalScores}}" wx:key="groupPlayerId">
-      <view class="group-score-main">
-        <text class="group-score-name">{{item.name}}</text>
-        <text class="{{item.totalScore >= 0 ? 'group-score-win' : 'group-score-lose'}}">{{item.totalScore}}</text>
+    <view class="trend-panel card">
+      <view class="trend-title">全员分数走势</view>
+      <view class="trend-legend all-trend-legend">
+        <view wx:for="{{allTrendPlayers}}" wx:key="id" class="trend-legend-item">
+          <text class="trend-dot" style="background: {{item.color}}"></text>
+          <text>{{item.name}}</text>
+        </view>
       </view>
-      <view class="round-score-list">
-        <text wx:for="{{item.roundScores}}" wx:for-item="round" wx:key="tableId">第{{round.roundNo}}局 {{round.score}}</text>
-      </view>
+      <canvas type="2d" id="all-score-chart" class="trend-canvas"></canvas>
     </view>
   </view>
 

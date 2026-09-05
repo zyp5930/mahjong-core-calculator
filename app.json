@@ -3,6 +3,7 @@
     "pages/home/home",
     "pages/create/create",
     "pages/room/room",
+    "pages/group-detail/group-detail",
     "pages/join/join",
     "pages/detail/detail",
     "pages/profile/profile"

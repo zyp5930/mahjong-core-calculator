@@ -5,9 +5,7 @@ Page({
   data: {
     tableId: '',
     table: {},
-    players: [],
-    records: [],
-    settlement: null
+    records: []
   },
 
   onLoad(options) {
@@ -27,7 +25,7 @@ Page({
       table = tables[0] || null;
     }
     if (!table) {
-      this.setData({ table: {}, players: [], records: [] });
+      this.setData({ table: {}, records: [] });
       return;
     }
     this.setData({
@@ -35,11 +33,10 @@ Page({
         ...table,
         statusText: table.status === 'active' ? '进行中' : (table.settlementStatus === 'pending' ? '待结算' : '已结束')
       },
-      players: store.sortPlayers(table.players),
-      settlement: table.settlement || null,
-      records: table.records.map((record) => ({
+      records: table.records
+        .filter((record) => record.type !== 'settlement')
+        .map((record) => ({
         ...record,
-        isSettlement: record.type === 'settlement',
         timeText: formatTime(record.createdAt),
         statusText: record.revoked ? '已撤销' : ''
       }))

@@ -34,6 +34,9 @@ Page({
     settlementMultiplier: '',
     finalScores: [],
     groupSettlement: null,
+    showScoreTrends: false,
+    myTrendName: '',
+    allTrendPlayers: [],
     canStartNextRound: false,
     canSettleGroup: false,
     canSettleTable: false,
@@ -142,6 +145,7 @@ Page({
       : null;
     const settlement = table.settlement || null;
     const groupSettlement = table.groupSettlement || null;
+    const scoreTrends = this.buildScoreTrends(groupSettlement, myPlayer);
     const isOwner = !!myPlayer && table.ownerOpenid === myPlayer.openid;
     const tablePendingSettlement = table.status === 'ended' && table.settlementStatus === 'pending';
     this.setData({
@@ -155,6 +159,7 @@ Page({
       settlementMultiplier: settlement ? settlement.multiplier : '',
       finalScores: settlement ? settlement.finalScores || [] : [],
       groupSettlement,
+      ...scoreTrends,
       tablePendingSettlement,
       canStartNextRound: !!(
         table.status === 'ended' &&
@@ -176,6 +181,9 @@ Page({
       ),
       notices: (table.notifications || []).filter((item) => !myPlayer || !item.targetOpenid || item.targetOpenid === myPlayer.openid)
     });
+    if (scoreTrends.showScoreTrends) {
+      wx.nextTick(() => this.drawScoreTrends(scoreTrends));
+    }
     if (!myPlayer && this.data.pendingAutoJoin) {
       this.setData({ pendingAutoJoin: false });
       this.redirectToJoin();
@@ -203,6 +211,158 @@ Page({
         this.redirectingToNextTable = false;
         this.startWatching();
       }
+    });
+  },
+
+  buildScoreTrends(groupSettlement, myPlayer) {
+    const finalScores = (groupSettlement && groupSettlement.finalScores) || [];
+    const roundNos = Array.from(new Set(finalScores.reduce((items, player) => (
+      items.concat((player.roundScores || []).map((round) => Number(round.roundNo) || 1))
+    ), []))).sort((left, right) => left - right);
+    if (!finalScores.length || !roundNos.length) {
+      return {
+        showScoreTrends: false,
+        myTrendName: '',
+        allTrendPlayers: []
+      };
+    }
+
+    const colors = ['#12855a', '#d85645', '#4e82c8', '#8b6fd9', '#bf7c35', '#4b9f9b'];
+    const allSeries = finalScores.map((player, index) => {
+      const scoreByRound = (player.roundScores || []).reduce((scores, round) => {
+        scores[Number(round.roundNo) || 1] = Number(round.score) || 0;
+        return scores;
+      }, {});
+      let total = 0;
+      const deltas = roundNos.map((roundNo) => Number(scoreByRound[roundNo]) || 0);
+      return {
+        id: player.groupPlayerId || player.name || String(index),
+        name: player.name || '玩家',
+        color: colors[index % colors.length],
+        deltas,
+        values: deltas.map((delta) => {
+          total += delta;
+          return total;
+        })
+      };
+    });
+    const myId = myPlayer && (myPlayer.groupPlayerId || myPlayer.openid || myPlayer.id);
+    const mySeries = allSeries.find((series) => series.id === myId)
+      || allSeries.find((series) => series.name === (myPlayer && myPlayer.name))
+      || allSeries[0];
+
+    return {
+      showScoreTrends: true,
+      myTrendName: myPlayer ? mySeries.name : `${mySeries.name}（当前查看）`,
+      allTrendPlayers: allSeries.map((series) => ({
+        id: series.id,
+        name: series.name,
+        color: series.color
+      })),
+      trendRounds: roundNos,
+      myTrendSeries: mySeries ? [mySeries] : [],
+      allTrendSeries: allSeries
+    };
+  },
+
+  drawScoreTrends(trends) {
+    this.drawTrendChart('my-score-chart', trends.trendRounds, trends.myTrendSeries);
+    this.drawTrendChart('all-score-chart', trends.trendRounds, trends.allTrendSeries);
+  },
+
+  drawTrendChart(canvasId, rounds, series) {
+    const query = wx.createSelectorQuery();
+    query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((result) => {
+      const canvasInfo = result && result[0];
+      if (!canvasInfo || !canvasInfo.node || !canvasInfo.width || !canvasInfo.height) return;
+      const canvas = canvasInfo.node;
+      const context = canvas.getContext('2d');
+      const width = canvasInfo.width;
+      const height = canvasInfo.height;
+      const pixelRatio = wx.getSystemInfoSync().pixelRatio || 1;
+      canvas.width = width * pixelRatio;
+      canvas.height = height * pixelRatio;
+      context.scale(pixelRatio, pixelRatio);
+      context.clearRect(0, 0, width, height);
+
+      const margin = { top: 18, right: 16, bottom: 38, left: 62 };
+      const chartWidth = Math.max(1, width - margin.left - margin.right);
+      const chartHeight = Math.max(1, height - margin.top - margin.bottom);
+      const values = series.reduce((items, item) => items.concat(item.values), [0]);
+      const minValue = Math.min(...values);
+      const maxValue = Math.max(...values);
+      const valueRange = Math.max(1, maxValue - minValue);
+      const padding = Math.max(1, valueRange * 0.16);
+      const domainMin = minValue - padding;
+      const domainMax = maxValue + padding;
+      const domainRange = domainMax - domainMin;
+      const xAt = (index) => rounds.length <= 1
+        ? margin.left + chartWidth / 2
+        : margin.left + (chartWidth * index) / (rounds.length - 1);
+      const yAt = (value) => margin.top + ((domainMax - value) / domainRange) * chartHeight;
+      const formatScore = (value) => {
+        const rounded = Math.round(value * 10) / 10;
+        return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+      };
+
+      context.font = '11px sans-serif';
+      context.lineWidth = 1;
+      for (let tick = 0; tick <= 4; tick += 1) {
+        const ratio = tick / 4;
+        const y = margin.top + chartHeight * ratio;
+        const value = domainMax - domainRange * ratio;
+        context.strokeStyle = '#e7ece8';
+        context.beginPath();
+        context.moveTo(margin.left, y);
+        context.lineTo(width - margin.right, y);
+        context.stroke();
+        context.fillStyle = '#829087';
+        context.textAlign = 'right';
+        context.textBaseline = 'middle';
+        context.fillText(formatScore(value), margin.left - 8, y);
+      }
+
+      const zeroY = yAt(0);
+      if (zeroY >= margin.top && zeroY <= margin.top + chartHeight) {
+        context.strokeStyle = '#b9c4be';
+        context.setLineDash([4, 4]);
+        context.beginPath();
+        context.moveTo(margin.left, zeroY);
+        context.lineTo(width - margin.right, zeroY);
+        context.stroke();
+        context.setLineDash([]);
+      }
+
+      series.forEach((item) => {
+        context.strokeStyle = item.color;
+        context.lineWidth = 2.5;
+        context.lineJoin = 'round';
+        context.lineCap = 'round';
+        context.beginPath();
+        item.values.forEach((value, index) => {
+          const x = xAt(index);
+          const y = yAt(value);
+          if (index === 0) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        });
+        context.stroke();
+        item.values.forEach((value, index) => {
+          context.fillStyle = '#fffdf8';
+          context.beginPath();
+          context.arc(xAt(index), yAt(value), 4, 0, Math.PI * 2);
+          context.fill();
+          context.strokeStyle = item.color;
+          context.lineWidth = 2;
+          context.stroke();
+        });
+      });
+
+      context.fillStyle = '#829087';
+      context.textAlign = 'center';
+      context.textBaseline = 'top';
+      rounds.forEach((roundNo, index) => {
+        context.fillText(`第${roundNo}局`, xAt(index), height - margin.bottom + 14);
+      });
     });
   },
 

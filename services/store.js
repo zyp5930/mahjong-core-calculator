@@ -183,6 +183,12 @@ function hasCloudReady() {
   return !!(wx.cloud && app && app.globalData && app.globalData.envId);
 }
 
+function getCloudErrorMessage(error, fallbackMessage) {
+  const message = String((error && (error.errMsg || error.message)) || fallbackMessage || '云端请求失败');
+  const code = error && (error.errCode || error.code);
+  return code && !message.includes(String(code)) ? `${message}（错误码：${code}）` : message;
+}
+
 function withTimeout(task, timeoutMessage) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -296,7 +302,7 @@ async function ensureMe() {
     return cachedMe;
   } catch (error) {
     setStoredMode('error');
-    throw new Error((error && error.message) || '云登录失败，请检查云函数 login 是否已部署');
+    throw new Error(getCloudErrorMessage(error, '云登录失败，请检查云函数 login 是否已部署'));
   }
 }
 
