@@ -48,6 +48,17 @@
       </view>
       <view wx:if="{{!records.length}}" class="empty card">还没有计分明细</view>
     </view>
+    <view wx:if="{{loadError}}" class="empty card">
+      <view>{{loadError}}</view>
+      <button bindtap="retryLoadDetail">重试</button>
+    </view>
+  </view>
+  <view wx:elif="{{loading}}" class="empty card">
+    <view>正在加载明细</view>
+  </view>
+  <view wx:elif="{{loadError}}" class="empty card">
+    <view>{{loadError}}</view>
+    <button bindtap="retryLoadDetail">重试</button>
   </view>
   <view wx:else class="empty card">
     <view>暂无牌局</view>

@@ -145,7 +145,7 @@
     </view>
   </view>
 
-  <view class="score-trends" wx:if="{{showScoreTrends || roundTrendTables.length}}">
+  <view class="score-trends" wx:if="{{table && table.status === 'ended' && (showScoreTrends || roundTrendTables.length)}}">
     <view class="trend-panel card" wx:if="{{showScoreTrends}}">
       <view class="trend-title">我的分数走势</view>
       <view class="trend-legend">

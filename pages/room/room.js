@@ -2,7 +2,7 @@ const store = require('../../services/store');
 
 const NOTICE_RECENT_WINDOW = 2 * 60 * 1000;
 const NOTICE_TOAST_DURATION = 3000;
-const TABLE_POLL_INTERVAL = 3000;
+const TABLE_POLL_INTERVAL = 30000;
 
 Page({
   data: {
@@ -70,7 +70,6 @@ Page({
       this.setData({ tableId });
       this.loadTable();
       this.startWatching();
-      this.startPolling();
       return;
     }
     if (shareCode) {
@@ -84,7 +83,6 @@ Page({
     this.setData({ mode: store.getStoredMode() });
     if (this.data.tableId) this.loadTable();
     this.startWatching();
-    this.startPolling();
   },
 
   onHide() {
@@ -130,10 +128,20 @@ Page({
     });
     this.loadTable();
     this.startWatching();
-    this.startPolling();
   },
 
   async loadTable() {
+    if (this.tableLoadPromise) return this.tableLoadPromise;
+    const loadPromise = this.loadTableInternal();
+    this.tableLoadPromise = loadPromise;
+    try {
+      return await loadPromise;
+    } finally {
+      if (this.tableLoadPromise === loadPromise) this.tableLoadPromise = null;
+    }
+  },
+
+  async loadTableInternal() {
     const loadGeneration = this.tableLoadGeneration || 0;
     try {
       // A refresh must not read the pre-write snapshot while a score request is pending.
@@ -228,6 +236,7 @@ Page({
   },
 
   refreshScoreTrends(table, myPlayer) {
+    if (table.status !== 'ended') return;
     this.roundTrendTableCache = this.roundTrendTableCache || {};
     this.roundTrendTableCache[table.id] = table;
     const groupId = table.groupId || table.id;
@@ -830,21 +839,28 @@ Page({
         onChange: async (snapshot) => {
           const rawTable = snapshot && snapshot.docs && snapshot.docs[0];
           if (!rawTable) return;
-          const table = await store.normalizeTable(rawTable);
-          this.applyTable(table);
+          try {
+            const table = await store.normalizeTable(rawTable);
+            this.applyTable(table);
+          } catch (error) {
+            console.error('[table watch update failed]', error);
+          }
         },
         onError: () => {
           this.stopWatching();
+          this.startPolling();
         }
       });
+      this.stopPolling();
     } catch (error) {
       this.stopWatching();
+      this.startPolling();
     }
   },
 
   startPolling() {
     this.stopPolling();
-    if (!this.data.tableId) return;
+    if (!this.data.tableId || this.tableWatcher) return;
     this.tablePollTimer = setInterval(() => {
       if (!this.data.tableId || this.redirectingToNextTable) return;
       this.loadTable();
@@ -998,7 +1014,12 @@ Page({
 
   openDetail() {
     wx.navigateTo({
-      url: `/pages/detail/detail?id=${this.data.tableId}`
+      url: `/pages/detail/detail?id=${this.data.tableId}`,
+      success: (result) => {
+        result.eventChannel.emit('detailTableSnapshot', {
+          table: this.data.table
+        });
+      }
     });
   },
 

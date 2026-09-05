@@ -5,11 +5,15 @@ const OPENID_KEY = 'mahjong_local_openid_v1';
 const MODE_KEY = 'mahjong_store_mode_v1';
 const NOTICE_SEEN_KEY = 'mahjong_notice_seen_v1';
 const CLOUD_TIMEOUT_MS = 6000;
+const CLOUD_FUNCTION_INTERVAL_MS = 1000;
 const AVATAR_URL_CACHE_TTL = 30 * 60 * 1000;
 
 const avatarColors = ['#6b9fe8', '#45b7a8', '#f16f5d', '#8a7ee8', '#d69a25', '#5f7285'];
 
 let cachedMe = null;
+let ensuringMePromise = null;
+let cloudFunctionQueue = Promise.resolve();
+let lastCloudFunctionStartedAt = 0;
 const avatarUrlCache = {};
 
 function clone(value) {
@@ -205,6 +209,21 @@ function withTimeout(task, timeoutMessage) {
   });
 }
 
+function delay(duration) {
+  return new Promise((resolve) => setTimeout(resolve, duration));
+}
+
+function callCloudFunction(name, data, timeoutMessage) {
+  const request = cloudFunctionQueue.then(async () => {
+    const waitDuration = Math.max(0, CLOUD_FUNCTION_INTERVAL_MS - (Date.now() - lastCloudFunctionStartedAt));
+    if (waitDuration) await delay(waitDuration);
+    lastCloudFunctionStartedAt = Date.now();
+    return withTimeout(wx.cloud.callFunction({ name, data }), timeoutMessage);
+  });
+  cloudFunctionQueue = request.catch(() => null);
+  return request;
+}
+
 function safeLog(label, value) {
   try {
     console.log(label, value);
@@ -283,14 +302,21 @@ function clearAvatarUrlCache(avatarFileId) {
 
 async function ensureMe() {
   if (cachedMe) return cachedMe;
+  if (ensuringMePromise) return ensuringMePromise;
+  ensuringMePromise = initializeMe();
+  try {
+    return await ensuringMePromise;
+  } finally {
+    ensuringMePromise = null;
+  }
+}
+
+async function initializeMe() {
   if (!hasCloudReady()) {
     throw new Error('云环境未初始化，请检查 app.js 中的 envId');
   }
   try {
-    const { result } = await withTimeout(
-      wx.cloud.callFunction({ name: 'login' }),
-      '云登录超时'
-    );
+    const { result } = await callCloudFunction('login', {}, '云登录超时');
     if (!result || !result.openid) {
       throw new Error('云登录未返回用户身份');
     }
@@ -314,13 +340,7 @@ async function callTableOp(action, data) {
   safeLog('[tableOps request]', payload);
   let result = null;
   try {
-    const response = await withTimeout(
-      wx.cloud.callFunction({
-        name: 'tableOps',
-        data: payload
-      }),
-      '云端操作超时'
-    );
+    const response = await callCloudFunction('tableOps', payload, '云端操作超时');
     safeLog('[tableOps response]', response);
     result = response.result;
   } catch (error) {
@@ -357,13 +377,7 @@ async function callTableOp(action, data) {
 }
 
 async function getTableCode(shareCode) {
-  const { result } = await withTimeout(
-    wx.cloud.callFunction({
-      name: 'tableCode',
-      data: { shareCode }
-    }),
-    '二维码生成超时'
-  );
+  const { result } = await callCloudFunction('tableCode', { shareCode }, '二维码生成超时');
   if (!result || result.ok === false) {
     throw new Error((result && result.message) || '二维码生成失败');
   }

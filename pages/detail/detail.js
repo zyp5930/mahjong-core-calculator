@@ -10,11 +10,21 @@ Page({
     records: [],
     trendPlayers: [],
     trendPoints: [],
-    trendHasRecords: false
+    trendHasRecords: false,
+    loading: true,
+    loadError: ''
   },
 
   onLoad(options) {
     this.setData({ tableId: options.id || '' });
+    try {
+      this.getOpenerEventChannel().on('detailTableSnapshot', ({ table }) => {
+        if (!table || this.detailLoadedFromCloud) return;
+        this.applyDetailTable(table, true);
+      });
+    } catch (error) {
+      // The page may be opened without an event channel, for example by a direct link.
+    }
   },
 
   onShow() {
@@ -30,13 +40,28 @@ Page({
   },
 
   async loadDetail() {
+    const loadGeneration = (this.detailLoadGeneration || 0) + 1;
+    this.detailLoadGeneration = loadGeneration;
+    this.setData({ loading: true, loadError: '' });
     let table = null;
-    if (this.data.tableId) {
-      table = await store.getTable(this.data.tableId);
-    } else {
-      const tables = await store.listTables();
-      table = tables[0] || null;
+    try {
+      if (this.data.tableId) {
+        table = await store.getTable(this.data.tableId);
+      } else {
+        const tables = await store.listTables();
+        table = tables[0] || null;
+      }
+    } catch (error) {
+      if (loadGeneration !== this.detailLoadGeneration) return;
+      console.error('[detail load failed]', error);
+      this.setData({
+        loading: false,
+        loadError: error.message || '明细加载失败，请重试'
+      });
+      return;
     }
+    if (loadGeneration !== this.detailLoadGeneration) return;
+    this.detailLoadedFromCloud = true;
     if (!table) {
       this.clearTrendTimers();
       this.trendSelectedIndex = -1;
@@ -45,10 +70,15 @@ Page({
         records: [],
         trendPlayers: [],
         trendPoints: [],
-        trendHasRecords: false
+        trendHasRecords: false,
+        loading: false
       });
       return;
     }
+    this.applyDetailTable(table, false);
+  },
+
+  applyDetailTable(table, loading) {
     const trend = this.buildTrendData(table);
     this.trendSelectedIndex = -1;
     this.setData({
@@ -65,8 +95,15 @@ Page({
         })),
       trendPlayers: trend.players,
       trendPoints: trend.points,
-      trendHasRecords: trend.hasRecords
+      trendHasRecords: trend.hasRecords,
+      loading,
+      loadError: ''
     }, () => this.drawScoreTrend());
+  },
+
+  retryLoadDetail() {
+    this.detailLoadedFromCloud = false;
+    this.loadDetail();
   },
 
   buildTrendData(table) {
