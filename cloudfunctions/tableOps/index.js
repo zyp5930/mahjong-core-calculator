@@ -408,7 +408,10 @@ async function updateTable(tableId, table, options = {}) {
   return options.transaction ? table : getTableById(tableId);
 }
 
-async function listTables(openid) {
+async function listTables(event, openid) {
+  const requestedLimit = Number(event && event.limit);
+  const limit = requestedLimit > 0 ? Math.min(Math.floor(requestedLimit), 50) : 100;
+  const skip = Number(event && event.skip) > 0 ? Math.floor(Number(event.skip)) : 0;
   const { data } = await db.collection('tables')
     .where({
       participantOpenids: _.in([openid])
@@ -432,6 +435,8 @@ async function listTables(openid) {
       settlement: true,
       players: true
     })
+    .skip(skip)
+    .limit(limit)
     .orderBy('createdAt', 'desc')
     .get();
   return data.map(buildTableListItem);
@@ -727,7 +732,7 @@ async function getGroupTables(table) {
   const groupId = getGroupId(table);
   const { data } = await db.collection('tables')
     .where({ groupId })
-    .limit(100)
+    .limit(limit)
     .get();
   const tables = data.length ? data : [table];
   return tables.sort((left, right) => (
@@ -911,7 +916,7 @@ exports.main = async (event) => {
   try {
     switch (event.action) {
       case 'listTables':
-        return ok(await listTables(OPENID));
+        return ok(await listTables(event, OPENID));
       case 'createTable':
         return ok(await createTable(event, OPENID));
       case 'getTable':

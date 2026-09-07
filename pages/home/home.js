@@ -72,6 +72,14 @@ Page({
   },
 
   async onShow() {
+    this.tablePageSize = 12;
+    this.tableLoadedCount = 0;
+    this.tableLoadingMore = false;
+    this.tableHasMore = true;
+    const cachedTables = store.getCachedTableList();
+    if (cachedTables.length) {
+      this.renderTables(cachedTables);
+    }
     this.setData({
       mode: store.getStoredMode(),
       modeText: store.getStoredMode() === 'cloud' ? '云同步模式' : '云端检测中'
@@ -107,42 +115,93 @@ Page({
 
   async loadTables() {
     this.setData({
-      loadingTables: true,
+      loadingTables: !this.formattedTables || !this.formattedTables.length,
       loadErrorText: '',
       emptyTitle: '正在加载对局',
       emptySubtitle: '稍等一下，正在同步牌桌。'
     });
     try {
-      const tables = await store.listTables();
-      const formattedTables = tables.map((table) => this.formatTable(table));
-      const tableGroups = this.buildTableGroups(formattedTables);
-      this.setData({
-        tables: formattedTables,
-        tableGroups,
-        latestGroup: this.buildLatestGroup(tableGroups),
-        quickStats: this.buildQuickStats(tableGroups),
-        loadingTables: false,
-        emptyTitle: '还没有对局',
-        emptySubtitle: '先创建一桌，牌友就能从分享进入。'
-      });
+      const tables = await store.listTables({ limit: this.tablePageSize, skip: 0 });
+      this.tableLoadedCount = tables.length;
+      this.tableHasMore = tables.length >= this.tablePageSize;
+      this.renderTables(tables);
+      // Avatars are decorative on the home screen. Fill them after the list
+      // and scores are already visible so slow file URL conversion cannot
+      // hold the first render.
+      store.hydrateTableAvatars(tables)
+        .then((hydratedTables) => this.renderTables(hydratedTables))
+        .catch(() => null);
     } catch (error) {
       console.error('[home loadTables error]', error);
       const errorState = getLoadErrorState(error);
-      this.setData({
-        tables: [],
-        tableGroups: [],
-        latestGroup: null,
-        quickStats: this.buildQuickStats([]),
-        loadingTables: false,
-        loadErrorText: errorState.title,
-        emptyTitle: errorState.title,
-        emptySubtitle: errorState.subtitle
-      });
+      if (!this.formattedTables || !this.formattedTables.length) {
+        this.setData({
+          tableGroups: [],
+          latestGroup: null,
+          quickStats: this.buildQuickStats([]),
+          loadingTables: false,
+          loadErrorText: errorState.title,
+          emptyTitle: errorState.title,
+          emptySubtitle: errorState.subtitle
+        });
+      }
       wx.showToast({
         title: '对局加载失败',
         icon: 'none'
       });
     }
+  },
+
+  async onReachBottom() {
+    if (this.tableLoadingMore || !this.tableHasMore) return;
+    this.tableLoadingMore = true;
+    try {
+      const nextTables = await store.listTables({
+        limit: this.tablePageSize,
+        skip: this.tableLoadedCount
+      });
+      const existing = this.formattedTables || [];
+      const merged = [...existing, ...nextTables].filter((table, index, list) => (
+        list.findIndex((item) => item.id === table.id) === index
+      ));
+      this.tableLoadedCount += nextTables.length;
+      this.tableHasMore = nextTables.length >= this.tablePageSize;
+      this.renderTables(merged);
+      store.hydrateTableAvatars(nextTables)
+        .then((hydratedTables) => {
+          const current = this.formattedTables || [];
+          const hydratedMap = hydratedTables.reduce((map, table) => {
+            map[table.id] = table;
+            return map;
+          }, {});
+          this.renderTables(current.map((table) => hydratedMap[table.id] || table));
+        })
+        .catch(() => null);
+    } finally {
+      this.tableLoadingMore = false;
+    }
+  },
+
+  renderTables(tables) {
+    const formattedTables = (tables || []).map((table) => this.formatTable(table));
+    const tableGroups = this.buildTableGroups(formattedTables);
+    this.formattedTables = formattedTables;
+    this.groupTablesById = tableGroups.reduce((map, group) => {
+      map[group.groupId] = group.tables || [];
+      return map;
+    }, {});
+    const renderGroups = tableGroups.map((group) => {
+      const { tables: ignoredTables, ...summary } = group;
+      return summary;
+    });
+    this.setData({
+      tableGroups: renderGroups,
+      latestGroup: this.buildLatestGroup(tableGroups),
+      quickStats: this.buildQuickStats(tableGroups),
+      loadingTables: false,
+      emptyTitle: '还没有对局',
+      emptySubtitle: '先创建一桌，牌友就能从分享进入。'
+    });
   },
 
   formatScoreText(score) {
@@ -264,7 +323,6 @@ Page({
       entryTable && entryTable.createdText ? `${entryTable.createdText}开始` : ''
     ];
     return {
-      ...latestGroup,
       entryTableId,
       entryName,
       entryRoundText: entryTable ? entryTable.roundText : '',
@@ -374,8 +432,8 @@ Page({
     wx.navigateTo({
       url: `/pages/group-detail/group-detail?groupId=${groupId}`,
       success: (result) => {
-        const group = (this.data.tableGroups || []).find((item) => item.groupId === groupId);
-        if (group) result.eventChannel.emit('groupTables', { tables: group.tables });
+        const tables = this.groupTablesById && this.groupTablesById[groupId];
+        if (tables) result.eventChannel.emit('groupTables', { tables });
       }
     });
   },
@@ -389,7 +447,12 @@ Page({
         [groupId]: !this.data.settlementScoreGroupIds[groupId]
       }
     }, () => {
-      this.setData({ tableGroups: this.buildTableGroups(this.data.tables) });
+      const tableGroups = this.buildTableGroups(this.formattedTables || []);
+      this.groupTablesById = tableGroups.reduce((map, group) => {
+        map[group.groupId] = group.tables || [];
+        return map;
+      }, {});
+      this.setData({ tableGroups: tableGroups.map(({ tables: ignoredTables, ...summary }) => summary) });
     });
   },
 

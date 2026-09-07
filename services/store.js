@@ -4,6 +4,7 @@ const STORAGE_KEY = 'mahjong_tables_v1';
 const OPENID_KEY = 'mahjong_local_openid_v1';
 const MODE_KEY = 'mahjong_store_mode_v1';
 const NOTICE_SEEN_KEY = 'mahjong_notice_seen_v1';
+const TABLE_LIST_CACHE_KEY = 'mahjong_table_list_cache_v1';
 const CLOUD_TIMEOUT_MS = 6000;
 const CLOUD_FUNCTION_INTERVAL_MS = 1000;
 const AVATAR_URL_CACHE_TTL = 30 * 60 * 1000;
@@ -15,6 +16,22 @@ let ensuringMePromise = null;
 let cloudFunctionQueue = Promise.resolve();
 let lastCloudFunctionStartedAt = 0;
 const avatarUrlCache = {};
+
+function getCachedTableList() {
+  const cached = wx.getStorageSync(TABLE_LIST_CACHE_KEY);
+  return cached && Array.isArray(cached.tables)
+    ? cached.tables.map(normalizeTableSummary).filter(Boolean)
+    : [];
+}
+
+function setCachedTableList(tables) {
+  if (!Array.isArray(tables)) return;
+  // Keep the cache bounded so startup stays cheap even after many rounds.
+  wx.setStorageSync(TABLE_LIST_CACHE_KEY, {
+    cachedAt: Date.now(),
+    tables: clone(tables).slice(0, 30)
+  });
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -213,9 +230,12 @@ function delay(duration) {
   return new Promise((resolve) => setTimeout(resolve, duration));
 }
 
-function callCloudFunction(name, data, timeoutMessage) {
+function callCloudFunction(name, data, timeoutMessage, options = {}) {
   const request = cloudFunctionQueue.then(async () => {
-    const waitDuration = Math.max(0, CLOUD_FUNCTION_INTERVAL_MS - (Date.now() - lastCloudFunctionStartedAt));
+    // Score operations are already serialized by the server transaction. Avoid
+    // adding an artificial 1s delay to rapid consecutive score actions.
+    const interval = options.immediate ? 0 : CLOUD_FUNCTION_INTERVAL_MS;
+    const waitDuration = Math.max(0, interval - (Date.now() - lastCloudFunctionStartedAt));
     if (waitDuration) await delay(waitDuration);
     lastCloudFunctionStartedAt = Date.now();
     return withTimeout(wx.cloud.callFunction({ name, data }), timeoutMessage);
@@ -340,7 +360,12 @@ async function callTableOp(action, data) {
   safeLog('[tableOps request]', payload);
   let result = null;
   try {
-    const response = await callCloudFunction('tableOps', payload, '云端操作超时');
+    const response = await callCloudFunction(
+      'tableOps',
+      payload,
+      '云端操作超时',
+      { immediate: action === 'giveScore' || action === 'undoLastGive' || action === 'listTables' }
+    );
     safeLog('[tableOps response]', response);
     result = response.result;
   } catch (error) {
@@ -416,6 +441,60 @@ async function normalizeTable(table) {
       id: item.id || `${id}_notice_${index}`
     }))
   });
+}
+
+function normalizeTableSummary(table) {
+  if (!table) return null;
+  const id = table._id || table.id;
+  return normalizeTableScores({
+    ...table,
+    id,
+    players: (table.players || []).map((player, index) => {
+      const avatarFileId = player.avatarFileId || (isCloudAvatarUrl(player.avatarUrl) ? player.avatarUrl : '');
+      return {
+        ...player,
+        id: player.id || player._id || `${id}_player_${index}`,
+        score: normalizeScore(player.score),
+        avatarUrl: isCloudAvatarUrl(avatarFileId) ? '' : (player.avatarUrl || ''),
+        avatarFileId,
+        avatarColor: player.avatarColor || avatarColors[index % avatarColors.length]
+      };
+    })
+  });
+}
+
+async function hydrateTableAvatars(tables) {
+  const list = Array.isArray(tables) ? tables : [];
+  const fileIds = Array.from(new Set(list.flatMap((table) => (table.players || [])
+    .map((player) => player.avatarFileId || '')
+    .filter(isCloudAvatarUrl))));
+  if (!fileIds.length || !wx.cloud || !wx.cloud.getTempFileURL) return list;
+
+  const urlMap = {};
+  const missing = fileIds.filter((fileId) => {
+    const cached = avatarUrlCache[fileId];
+    if (cached && Date.now() - cached.createdAt < AVATAR_URL_CACHE_TTL) {
+      urlMap[fileId] = cached.url;
+      return false;
+    }
+    return true;
+  });
+  for (let index = 0; index < missing.length; index += 50) {
+    const result = await wx.cloud.getTempFileURL({ fileList: missing.slice(index, index + 50) });
+    (result.fileList || []).forEach((file) => {
+      if (file.fileID && file.tempFileURL) {
+        avatarUrlCache[file.fileID] = { url: file.tempFileURL, createdAt: Date.now() };
+        urlMap[file.fileID] = file.tempFileURL;
+      }
+    });
+  }
+  return list.map((table) => ({
+    ...table,
+    players: (table.players || []).map((player) => ({
+      ...player,
+      avatarUrl: urlMap[player.avatarFileId] || player.avatarUrl || ''
+    }))
+  }));
 }
 
 async function listTablesLocal() {
@@ -867,10 +946,22 @@ async function withCloudOnly(cloudTask) {
   return result;
 }
 
-async function listTables() {
+async function listTables(options = {}) {
   return withCloudOnly(async () => {
-    const tables = await callTableOp('listTables', {});
-    return Promise.all(tables.map(normalizeTable));
+    const limit = Number(options.limit) > 0 ? Math.min(Math.floor(Number(options.limit)), 50) : undefined;
+    const skip = Number(options.skip) > 0 ? Math.floor(Number(options.skip)) : 0;
+    const tables = await callTableOp('listTables', limit ? { limit, skip } : { skip });
+    const normalizedTables = tables.map(normalizeTableSummary).filter(Boolean);
+    if (skip) {
+      const cached = getCachedTableList();
+      const merged = [...cached, ...normalizedTables].filter((table, index, list) => (
+        list.findIndex((item) => item.id === table.id) === index
+      ));
+      setCachedTableList(merged);
+    } else {
+      setCachedTableList(normalizedTables);
+    }
+    return normalizedTables;
   });
 }
 
@@ -979,6 +1070,8 @@ module.exports = {
   getStoredMode,
   getTableCode,
   normalizeTable,
+  getCachedTableList,
+  hydrateTableAvatars,
   clearAvatarUrlCache,
   isNoticeSeen,
   markNoticeSeen
