@@ -148,6 +148,13 @@
     <view class="muted">{{emptySubtitle}}</view>
   </view>
 
+  <view class="pagination-status" wx:if="{{tableGroups.length}}">
+    <text wx:if="{{loadingMore}}">正在加载更多对局…</text>
+    <button wx:elif="{{moreError}}" bindtap="onReachBottom">加载失败，重试</button>
+    <button wx:elif="{{hasMore}}" bindtap="onReachBottom">加载更多</button>
+    <text wx:else>已显示全部对局</text>
+  </view>
+
   <view class="sheet-mask" wx:if="{{settlementVisible}}" bindtap="closeHomeSettlement"></view>
   <view class="settlement-sheet" wx:if="{{settlementVisible}}">
     <view class="settlement-title">结算本次对局</view>

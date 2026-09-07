@@ -911,3 +911,21 @@
   margin-top: 12rpx;
   font-size: 26rpx;
 }
+
+.pagination-status {
+  min-height: 88rpx;
+  padding: 16rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  color: #66756e;
+}
+
+.pagination-status button {
+  background: transparent;
+  color: #12855a;
+  font-size: 26rpx;
+}
+
+.pagination-status button::after {
+  border: 0;
+}

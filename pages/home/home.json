@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "戒麻么"
+  "navigationBarTitleText": "戒麻么",
+  "enablePullDownRefresh": true,
+  "onReachBottomDistance": 180
 }

@@ -63,6 +63,9 @@ Page({
     mode: 'unknown',
     modeText: '检测中',
     loadingTables: true,
+    loadingMore: false,
+    hasMore: false,
+    moreError: false,
     loadErrorText: '',
     emptyTitle: '正在加载对局',
     emptySubtitle: '稍等一下，正在同步牌桌。',
@@ -72,12 +75,14 @@ Page({
   },
 
   async onShow() {
+    const generation = this.loadGeneration = (this.loadGeneration || 0) + 1;
+    this.tableRefreshing = true;
     this.tablePageSize = 12;
     this.tableLoadedCount = 0;
     this.tableLoadingMore = false;
     this.tableHasMore = true;
     const cachedTables = store.getCachedTableList();
-    if (cachedTables.length) {
+    if (cachedTables.length && !this.formattedTables) {
       this.renderTables(cachedTables);
     }
     this.setData({
@@ -87,12 +92,14 @@ Page({
     let loginError = null;
     try {
       const me = await store.ensureMe();
+      if (generation !== this.loadGeneration) return;
       const mode = me.mode || store.getStoredMode();
       this.setData({
         mode,
         modeText: mode === 'cloud' ? '云同步模式' : '云端不可用'
       });
     } catch (error) {
+      if (generation !== this.loadGeneration) return;
       console.error('[home ensureMe error]', error);
       loginError = error;
       this.setData({
@@ -101,6 +108,7 @@ Page({
       });
     }
     if (loginError) {
+      this.tableRefreshing = false;
       const errorState = getLoadErrorState(loginError);
       this.setData({
         loadingTables: false,
@@ -113,8 +121,26 @@ Page({
     await this.loadTables();
   },
 
+  onHide() {
+    this.loadGeneration = (this.loadGeneration || 0) + 1;
+  },
+
+  onUnload() {
+    this.onHide();
+  },
+
+  onPullDownRefresh() {
+    return this.loadTables().finally(() => wx.stopPullDownRefresh());
+  },
+
   async loadTables() {
+    const generation = this.loadGeneration = (this.loadGeneration || 0) + 1;
+    this.tableRefreshing = true;
+    this.tableLoadingMore = false;
+    this.tablePageSize = 12;
     this.setData({
+      loadingMore: false,
+      moreError: false,
       loadingTables: !this.formattedTables || !this.formattedTables.length,
       loadErrorText: '',
       emptyTitle: '正在加载对局',
@@ -122,16 +148,14 @@ Page({
     });
     try {
       const tables = await store.listTables({ limit: this.tablePageSize, skip: 0 });
+      if (generation !== this.loadGeneration) return;
       this.tableLoadedCount = tables.length;
       this.tableHasMore = tables.length >= this.tablePageSize;
       this.renderTables(tables);
-      // Avatars are decorative on the home screen. Fill them after the list
-      // and scores are already visible so slow file URL conversion cannot
-      // hold the first render.
-      store.hydrateTableAvatars(tables)
-        .then((hydratedTables) => this.renderTables(hydratedTables))
-        .catch(() => null);
+      this.setData({ hasMore: this.tableHasMore });
+      this.hydrateAvatars(tables, generation);
     } catch (error) {
+      if (generation !== this.loadGeneration) return;
       console.error('[home loadTables error]', error);
       const errorState = getLoadErrorState(error);
       if (!this.formattedTables || !this.formattedTables.length) {
@@ -149,37 +173,62 @@ Page({
         title: '对局加载失败',
         icon: 'none'
       });
+    } finally {
+      if (generation === this.loadGeneration) this.tableRefreshing = false;
     }
   },
 
   async onReachBottom() {
-    if (this.tableLoadingMore || !this.tableHasMore) return;
+    if (this.tableRefreshing || this.tableLoadingMore || !this.tableHasMore) return;
+    const generation = this.loadGeneration;
     this.tableLoadingMore = true;
+    this.setData({ loadingMore: true, moreError: false });
     try {
       const nextTables = await store.listTables({
         limit: this.tablePageSize,
         skip: this.tableLoadedCount
       });
+      if (generation !== this.loadGeneration) return;
       const existing = this.formattedTables || [];
-      const merged = [...existing, ...nextTables].filter((table, index, list) => (
-        list.findIndex((item) => item.id === table.id) === index
-      ));
+      const byId = new Map(existing.map((table) => [table.id, table]));
+      nextTables.forEach((table) => byId.set(table.id, table));
+      const merged = Array.from(byId.values());
       this.tableLoadedCount += nextTables.length;
       this.tableHasMore = nextTables.length >= this.tablePageSize;
       this.renderTables(merged);
-      store.hydrateTableAvatars(nextTables)
-        .then((hydratedTables) => {
-          const current = this.formattedTables || [];
-          const hydratedMap = hydratedTables.reduce((map, table) => {
-            map[table.id] = table;
-            return map;
-          }, {});
-          this.renderTables(current.map((table) => hydratedMap[table.id] || table));
-        })
-        .catch(() => null);
+      this.setData({ hasMore: this.tableHasMore });
+      this.hydrateAvatars(nextTables, generation);
+    } catch (error) {
+      if (generation === this.loadGeneration) this.setData({ moreError: true });
     } finally {
-      this.tableLoadingMore = false;
+      if (generation === this.loadGeneration) {
+        this.tableLoadingMore = false;
+        this.setData({ loadingMore: false });
+      }
     }
+  },
+
+  hydrateAvatars(tables, generation) {
+    return store.hydrateTableAvatars(tables).then((hydrated) => {
+      if (generation !== this.loadGeneration) return;
+      const urls = new Map();
+      hydrated.forEach((table) => (table.players || []).forEach((player) => {
+        if (player.avatarFileId && player.avatarUrl) urls.set(player.avatarFileId, player.avatarUrl);
+      }));
+      // Only patch visible avatars; late image responses must never replace scores or pages.
+      const patch = {};
+      this.data.tableGroups.forEach((group, groupIndex) => group.players.forEach((player, playerIndex) => {
+        const url = urls.get(player.avatarFileId);
+        if (url && url !== player.avatarUrl) {
+          player.avatarUrl = url;
+          patch[`tableGroups[${groupIndex}].players[${playerIndex}].avatarUrl`] = url;
+        }
+      }));
+      (this.formattedTables || []).forEach((table) => (table.players || []).forEach((player) => {
+        if (urls.has(player.avatarFileId)) player.avatarUrl = urls.get(player.avatarFileId);
+      }));
+      if (Object.keys(patch).length) this.setData(patch);
+    }).catch(() => null);
   },
 
   renderTables(tables) {

@@ -128,7 +128,7 @@
       </view>
     </view>
     <view class="keypad">
-      <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" class="{{item === '确认' ? 'confirm' : ''}} {{item === '确认' && !inputValue ? 'disabled' : ''}}">{{item}}</button>
+      <button wx:for="{{keys}}" wx:key="*this" data-key="{{item}}" bindtap="tapKey" disabled="{{item === '确认' && (!inputValue || scoreSaving || undoSaving)}}" loading="{{item === '确认' && (scoreSaving || undoSaving)}}" class="{{item === '确认' ? 'confirm' : ''}} {{item === '确认' && !inputValue ? 'disabled' : ''}}">{{item === '确认' && (scoreSaving || undoSaving) ? '处理中' : item}}</button>
     </view>
   </view>
 

@@ -732,7 +732,7 @@ async function getGroupTables(table) {
   const groupId = getGroupId(table);
   const { data } = await db.collection('tables')
     .where({ groupId })
-    .limit(limit)
+    .limit(100)
     .get();
   const tables = data.length ? data : [table];
   return tables.sort((left, right) => (

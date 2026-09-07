@@ -1190,6 +1190,7 @@ Page({
   },
 
   openKeypad(event) {
+    if (!this.data.canGive) return;
     const id = event.currentTarget.dataset.id;
     const targetPlayer = this.data.players.find((player) => player.id === id);
     this.setData({
@@ -1200,6 +1201,8 @@ Page({
   },
 
   async undoLastGive(event) {
+    if (this.givingScore || this.data.undoSaving || this.undoConfirming || !this.data.canGive) return;
+    this.undoConfirming = true;
     const toPlayerId = event.currentTarget.dataset.id;
     const targetPlayer = this.data.players.find((player) => player.id === toPlayerId) || {};
     const record = ((this.data.table && this.data.table.records) || []).find((item) => (
@@ -1221,7 +1224,8 @@ Page({
         fail: () => resolve({ confirm: false })
       });
     });
-    if (!confirmRes.confirm) return;
+    this.undoConfirming = false;
+    if (!confirmRes.confirm || this.givingScore || !this.data.canGive) return;
 
     this.setData({ undoSaving: true });
     try {
@@ -1300,14 +1304,18 @@ Page({
         operatorOpenid: this.data.myPlayer && this.data.myPlayer.openid,
         createdAt: Date.now(),
         revoked: false
-      }, ...((table.records || []).map((record) => ({ ...record })))]
+      }, ...(table.records || [])]
     };
   },
 
   async confirmGive() {
-    if (this.givingScore) return;
+    if (this.givingScore || this.data.undoSaving || this.undoConfirming) {
+      wx.showToast({ title: '上一笔正在处理', icon: 'none' });
+      return;
+    }
+    if (!this.data.canGive) return;
     const amount = Number(this.data.inputValue);
-    if (!amount) {
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 999999) {
       wx.showToast({ title: '请输入分数', icon: 'none' });
       return;
     }
@@ -1332,7 +1340,7 @@ Page({
     const toastId = `give_${Date.now()}_${targetPlayer.id}`;
     this.appendNoticeToasts([{
       id: toastId,
-      text: `已给 ${targetPlayer.name || '玩家'} ${amount} 分`
+      text: `正在给 ${targetPlayer.name || '玩家'} ${amount} 分`
     }]);
     const giveScorePromise = store.giveScore(
         this.data.tableId,
@@ -1344,6 +1352,11 @@ Page({
     try {
       const table = await giveScorePromise;
       this.applyTable(table);
+      this.closeNotice({ currentTarget: { dataset: { id: toastId } } });
+      this.appendNoticeToasts([{
+        id: `${toastId}_saved`,
+        text: `已给 ${targetPlayer.name || '玩家'} ${amount} 分`
+      }]);
     } catch (error) {
       if (previousTable) this.applyTable(previousTable);
       this.closeNotice({ currentTarget: { dataset: { id: toastId } } });
