@@ -68,9 +68,10 @@ Page({
       },
       records: (table.records || [])
         .filter((record) => record.type !== 'settlement')
+        .sort((left, right) => (Number(right.createdAt) || 0) - (Number(left.createdAt) || 0))
         .map((record) => ({
           ...record,
-          timeText: formatTime(record.createdAt),
+          timeText: formatTime(record.createdAt, true),
           statusText: record.revoked ? '已撤销' : ''
         })),
       loading,

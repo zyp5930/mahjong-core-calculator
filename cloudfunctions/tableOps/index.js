@@ -673,45 +673,6 @@ async function undoLastGive(event, openid) {
   });
 }
 
-// 一次性数据修复入口：仅用于补记历史未写入的给分，修复完成后请删除本函数及 main 中的 repairScore case。
-async function repairScore(event, openid) {
-  if (!db.runTransaction) throw new Error('当前云开发环境不支持事务，请升级 wx-server-sdk');
-  const repairKey = String(event.repairKey || '').trim();
-  if (!repairKey) throw new Error('缺少 repairKey');
-  const recordId = `repair_${repairKey}`;
-  return runTransactionWithRetry(async (transaction) => {
-    const { data: table } = await transaction.collection('tables').doc(event.tableId).get();
-    if (!table) throw new Error('牌局不存在');
-    if (openid && table.ownerOpenid !== openid) throw new Error('只有桌主可以修复积分');
-
-    const amount = Number(event.amount);
-    if (!Number.isInteger(amount) || amount <= 0) throw new Error('请输入有效分数');
-
-    const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
-    const toPlayer = table.players.find((player) => player.id === event.toPlayerId);
-    if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
-
-    table.records = table.records || [];
-    if (table.records.some((item) => item.id === recordId)) return table;
-
-    fromPlayer.score = normalizeScore(Number(fromPlayer.score) - amount);
-    toPlayer.score = normalizeScore(Number(toPlayer.score) + amount);
-    table.updatedAt = Date.now();
-    table.records.unshift({
-      id: recordId,
-      fromPlayerId: fromPlayer.id,
-      fromPlayerName: fromPlayer.name,
-      toPlayerId: toPlayer.id,
-      toPlayerName: toPlayer.name,
-      amount,
-      operatorOpenid: fromPlayer.openid || openid || '',
-      createdAt: Number(event.createdAt) || Date.now(),
-      revoked: false
-    });
-    return updateTable(event.tableId, table, { transaction });
-  });
-}
-
 async function toggleMuted(event) {
   const table = await getTableById(event.tableId);
   if (!table) throw new Error('牌局不存在');
@@ -998,8 +959,6 @@ exports.main = async (event) => {
         return ok(await giveScore(event, OPENID));
       case 'undoLastGive':
         return ok(await undoLastGive(event, OPENID));
-      case 'repairScore': // 一次性数据修复入口，用后删除
-        return ok(await repairScore(event, OPENID));
       case 'toggleMuted':
         return ok(await toggleMuted(event));
       case 'endTable':

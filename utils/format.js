@@ -2,14 +2,17 @@ function pad(num) {
   return num < 10 ? `0${num}` : `${num}`;
 }
 
-function formatTime(timestamp) {
+function formatTime(timestamp, withSeconds) {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const month = pad(date.getMonth() + 1);
   const day = pad(date.getDate());
   const hour = pad(date.getHours());
   const minute = pad(date.getMinutes());
-  return `${month}-${day} ${hour}:${minute}`;
+  const second = pad(date.getSeconds());
+  return withSeconds
+    ? `${month}-${day} ${hour}:${minute}:${second}`
+    : `${month}-${day} ${hour}:${minute}`;
 }
 
 function formatDuration(startAt, endAt) {
