@@ -73,3 +73,22 @@ cloudfunctions/tableCode
 - 改成数据库 `watch` 监听，减少请求次数。
 - 将 `tables` 拆为 `tables` + `records` 两个集合，避免单文档越积越大。
 - 增加桌主强制撤销、踢人、锁定身份等管理能力。
+
+## 一次性数据修复（用后删除）
+
+`tableOps` 里的 `repairScore` 动作用于补记因并发冲突等原因没有写入的给分。在云开发控制台的云函数「云端测试」中触发（桌主或控制台调用）：
+
+```json
+{
+  "action": "repairScore",
+  "tableId": "牌局 ID",
+  "fromPlayerId": "给分玩家 ID",
+  "toPlayerId": "收分玩家 ID",
+  "amount": 42,
+  "repairKey": "唯一标识，用于幂等",
+  "createdAt": 0
+}
+```
+
+- 记录 id 由 `repairKey` 决定（`repair_<repairKey>`），重复触发不会重复加分。
+- 这是临时入口，修复完成后请删除 `repairScore` 函数以及 `exports.main` 中的 `repairScore` case。

@@ -222,7 +222,15 @@ function getErrorMessage(error) {
   if (message.includes('response size exceeded') || message.includes('EXCEED_MAX_RESPONSE_SIZE')) {
     return '云端返回数据过大，请重新部署最新云函数后重试';
   }
+  if (isTransactionConflict(error)) {
+    return '操作冲突，请重试';
+  }
   return message || '云函数执行失败';
+}
+
+function isTransactionConflict(error) {
+  const message = String((error && (error.errMsg || error.message)) || '');
+  return (error && error.errCode === -501001) || message.includes('TransactionConflict');
 }
 
 function normalizePlayer(name, index, openid, isOwner) {
@@ -412,10 +420,12 @@ async function listTables(event, openid) {
   const requestedLimit = Number(event && event.limit);
   const limit = requestedLimit > 0 ? Math.min(Math.floor(requestedLimit), 50) : 100;
   const skip = Number(event && event.skip) > 0 ? Math.floor(Number(event.skip)) : 0;
+  const groupId = typeof event.groupId === 'string' ? event.groupId.trim() : '';
+  const filter = groupId
+    ? { participantOpenids: _.in([openid]), groupId }
+    : { participantOpenids: _.in([openid]) };
   const { data } = await db.collection('tables')
-    .where({
-      participantOpenids: _.in([openid])
-    })
+    .where(filter)
     .field({
       name: true,
       shareCode: true,
@@ -548,9 +558,27 @@ async function updateMyProfile(event, openid) {
   return (await attachAvatarUrls({ ...updatedTable, players: [updatedPlayer] }, openid)).players[0];
 }
 
+const TRANSACTION_MAX_ATTEMPTS = 3;
+
+async function runTransactionWithRetry(handler) {
+  let lastError;
+  for (let attempt = 1; attempt <= TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await db.runTransaction(handler);
+    } catch (error) {
+      lastError = error;
+      if (!isTransactionConflict(error) || attempt === TRANSACTION_MAX_ATTEMPTS) throw error;
+      const backoff = 50 * attempt + Math.floor(Math.random() * 50);
+      console.log('[tableOps transaction retry]', { attempt, backoff });
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+    }
+  }
+  throw lastError;
+}
+
 async function giveScore(event, openid) {
   if (!db.runTransaction) throw new Error('当前云开发环境不支持事务，请升级 wx-server-sdk');
-  return db.runTransaction(async (transaction) => {
+  return runTransactionWithRetry(async (transaction) => {
     const { data: table } = await transaction.collection('tables').doc(event.tableId).get();
     if (!table) throw new Error('牌局不存在');
     if (table.status !== 'active') throw new Error('牌局已结束');
@@ -602,7 +630,7 @@ async function giveScore(event, openid) {
 
 async function undoLastGive(event, openid) {
   if (!db.runTransaction) throw new Error('当前云开发环境不支持事务，请升级 wx-server-sdk');
-  return db.runTransaction(async (transaction) => {
+  return runTransactionWithRetry(async (transaction) => {
     const { data: table } = await transaction.collection('tables').doc(event.tableId).get();
     if (!table) throw new Error('牌局不存在');
     if (table.status !== 'active') throw new Error('牌局已结束');
@@ -641,6 +669,45 @@ async function undoLastGive(event, openid) {
         }
       ));
     }
+    return updateTable(event.tableId, table, { transaction });
+  });
+}
+
+// 一次性数据修复入口：仅用于补记历史未写入的给分，修复完成后请删除本函数及 main 中的 repairScore case。
+async function repairScore(event, openid) {
+  if (!db.runTransaction) throw new Error('当前云开发环境不支持事务，请升级 wx-server-sdk');
+  const repairKey = String(event.repairKey || '').trim();
+  if (!repairKey) throw new Error('缺少 repairKey');
+  const recordId = `repair_${repairKey}`;
+  return runTransactionWithRetry(async (transaction) => {
+    const { data: table } = await transaction.collection('tables').doc(event.tableId).get();
+    if (!table) throw new Error('牌局不存在');
+    if (openid && table.ownerOpenid !== openid) throw new Error('只有桌主可以修复积分');
+
+    const amount = Number(event.amount);
+    if (!Number.isInteger(amount) || amount <= 0) throw new Error('请输入有效分数');
+
+    const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
+    const toPlayer = table.players.find((player) => player.id === event.toPlayerId);
+    if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
+
+    table.records = table.records || [];
+    if (table.records.some((item) => item.id === recordId)) return table;
+
+    fromPlayer.score = normalizeScore(Number(fromPlayer.score) - amount);
+    toPlayer.score = normalizeScore(Number(toPlayer.score) + amount);
+    table.updatedAt = Date.now();
+    table.records.unshift({
+      id: recordId,
+      fromPlayerId: fromPlayer.id,
+      fromPlayerName: fromPlayer.name,
+      toPlayerId: toPlayer.id,
+      toPlayerName: toPlayer.name,
+      amount,
+      operatorOpenid: fromPlayer.openid || openid || '',
+      createdAt: Number(event.createdAt) || Date.now(),
+      revoked: false
+    });
     return updateTable(event.tableId, table, { transaction });
   });
 }
@@ -931,6 +998,8 @@ exports.main = async (event) => {
         return ok(await giveScore(event, OPENID));
       case 'undoLastGive':
         return ok(await undoLastGive(event, OPENID));
+      case 'repairScore': // 一次性数据修复入口，用后删除
+        return ok(await repairScore(event, OPENID));
       case 'toggleMuted':
         return ok(await toggleMuted(event));
       case 'endTable':

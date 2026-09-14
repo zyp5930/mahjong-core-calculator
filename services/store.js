@@ -969,6 +969,24 @@ async function getTable(tableId) {
   return withCloudOnly(async () => normalizeTable(await callTableOp('getTable', { tableId })));
 }
 
+async function listGroupTables(groupId) {
+  if (!groupId) return [];
+  return withCloudOnly(async () => {
+    const tablesById = new Map();
+    const limit = 50;
+    let skip = 0;
+    let page;
+    do {
+      page = await callTableOp('listTables', { groupId, limit, skip });
+      page.map(normalizeTableSummary).filter(Boolean).forEach((table) => {
+        if ((table.groupId || table.id) === groupId) tablesById.set(table.id, table);
+      });
+      skip += page.length;
+    } while (page.length === limit);
+    return Array.from(tablesById.values());
+  });
+}
+
 async function getTableByShareCode(shareCode) {
   return withCloudOnly(async () => normalizeTable(await callTableOp('getTableByShareCode', { shareCode })));
 }
@@ -1049,6 +1067,7 @@ async function deleteGroup(tableId) {
 
 module.exports = {
   listTables,
+  listGroupTables,
   getTable,
   getTableByShareCode,
   createTable,
