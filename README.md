@@ -6,7 +6,7 @@
 
 - 创建牌局并生成分享码、二维码。
 - 其他用户可通过分享路径或扫码进入牌局。
-- 进入牌局后可设置自己的微信头像和昵称，昵称支持修改。
+- 创建或加入牌局时可主动选择微信头像和昵称；头像仅用于同桌展示，昵称会进行内容安全检测。
 - 按截图风格展示玩家列表、顶部操作栏和底部给分键盘。
 - 点击某个玩家的“给分”，输入分数后记为“我给对方 N 分”。
 - 记录计分明细。
@@ -47,9 +47,12 @@ pages/home/home
 
 ## 云开发集合
 
-当前实现只依赖一个集合：
+当前集合：
 
-- `tables`
+- `tables`：牌局
+- `request_limits`：限流
+- `privacy_jobs` / `privacy_locks`：断点删除任务与租约
+- `legacy_avatar_files`：历史头像清理引用
 
 每桌牌局的数据都保存在一条文档里，里面包含：
 
@@ -65,3 +68,11 @@ pages/home/home
 - `cloudfunctions/tableOps`
 
 更详细的接入步骤见 [docs/cloud-migration.md](/Users/zyp/Documents/mahjong-core-calculator/docs/cloud-migration.md:1)。
+
+## 个人主体上线准备
+
+倍率默认值已取消，仅保留用户主动输入的积分倍率。此工具仅供娱乐，积分不代表金钱，不得用于赌博、兑换或资金结算。
+
+请先阅读 [上线交付清单](docs/release-checklist.md)，创建辅助集合并应用客户端禁止读写规则，再部署云函数和客户端。公开联系方式维护于 config/compliance.js。隐私同意、个人云端数据删除、内容审核和权限检查已实现；微信后台备案、类目确认、实际云规则和双机验收仍需按清单完成。
+
+本地检查：`node scripts/check-release.js`；回归测试：`node --test tests/*.test.js`。

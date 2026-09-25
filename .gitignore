@@ -1,2 +1,5 @@
 project.private.config.json
 .DS_Store
+
+database_export*.json
+node_modules/

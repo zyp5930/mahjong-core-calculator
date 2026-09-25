@@ -32,6 +32,7 @@
 
 .menu button {
   height: 104rpx;
+  width: 100%;
   padding: 0 28rpx;
   border-bottom: 1rpx solid #f0e6d6;
   color: #1f2a24;
@@ -40,13 +41,36 @@
   align-items: center;
   justify-content: space-between;
   background: transparent;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .menu button:last-child {
   border-bottom: 0;
 }
 
+.menu-label {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.menu-arrow {
+  flex: 0 0 32rpx;
+  margin-left: 18rpx;
+  color: #9aa5a0;
+  font-size: 40rpx;
+  line-height: 1;
+  text-align: right;
+}
+
 .arrow {
   color: #9aa5a0;
   font-size: 40rpx;
 }
+
+.legal-link { padding: 32rpx 28rpx; font-size: 30rpx; border-bottom: 1rpx solid #f0e6d6; }
+.contact-detail { margin-top: 24rpx; font-size: 26rpx; line-height: 1.7; color: #526159; }

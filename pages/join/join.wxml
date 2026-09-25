@@ -1,7 +1,8 @@
 <view class="page join-page">
+  <view class="entertainment-notice">仅供娱乐。积分不代表金钱，不得用于赌博、兑换或资金结算。</view>
   <view class="card intro">
     <view class="title">{{table.name}}</view>
-    <view class="muted">{{myPlayer ? '修改你的昵称和头像。' : '输入你的牌桌昵称，加入后就可以给其他玩家计分。'}}</view>
+    <view class="muted">{{myPlayer ? '修改你的牌桌昵称。' : '输入你的牌桌昵称，加入后就可以给其他玩家计分。'}}</view>
   </view>
 
   <view class="player-list" wx:if="{{players.length > 1}}">
@@ -24,11 +25,10 @@
     </view>
     <button class="avatar-hit-area" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" hover-class="none"></button>
   </view>
-
   <view class="card name-card">
     <text>我的昵称</text>
     <input
-      type="nickname"
+      type="nickname" maxlength="20"
       value="{{name}}"
       focus="{{nameInputFocus}}"
       cursor="{{name.length}}"

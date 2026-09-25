@@ -2,6 +2,10 @@
   "rules": [
     {
       "action": "allow",
+      "page": "pages/home/home"
+    },
+    {
+      "action": "disallow",
       "page": "*"
     }
   ]

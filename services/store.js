@@ -1,10 +1,11 @@
+const privacy = require('./privacy');
 const { makeId, makeShareCode, normalizeScore } = require('../utils/format');
 
 const STORAGE_KEY = 'mahjong_tables_v1';
 const OPENID_KEY = 'mahjong_local_openid_v1';
 const MODE_KEY = 'mahjong_store_mode_v1';
 const NOTICE_SEEN_KEY = 'mahjong_notice_seen_v1';
-const TABLE_LIST_CACHE_KEY = 'mahjong_table_list_cache_v1';
+const TABLE_LIST_CACHE_KEY = 'mahjong_table_list_cache_v2';
 const CLOUD_TIMEOUT_MS = 6000;
 const CLOUD_FUNCTION_INTERVAL_MS = 1000;
 const AVATAR_URL_CACHE_TTL = 30 * 60 * 1000;
@@ -244,12 +245,8 @@ function callCloudFunction(name, data, timeoutMessage, options = {}) {
   return request;
 }
 
-function safeLog(label, value) {
-  try {
-    console.log(label, value);
-  } catch (error) {
-    console.log(label, String(value));
-  }
+function safeLog() {
+  // Never log user data in production.
 }
 
 function isCloudAvatarUrl(avatarUrl) {
@@ -273,16 +270,12 @@ function getAvatarExtension(avatarUrl) {
 async function uploadCloudAvatar(avatarUrl) {
   if (!avatarUrl || isCloudAvatarUrl(avatarUrl)) return avatarUrl || '';
   if (isRemoteAvatarUrl(avatarUrl)) return '';
-  if (!wx.cloud || !wx.cloud.uploadFile) return avatarUrl;
+  if (!wx.cloud || !wx.cloud.uploadFile) return '';
   const me = await ensureMe();
-  if (me.mode !== 'cloud') return avatarUrl;
   const extension = getAvatarExtension(avatarUrl);
-  const cloudPath = `avatars/${me.openid}/${Date.now()}.${extension}`;
-  const { fileID } = await wx.cloud.uploadFile({
-    cloudPath,
-    filePath: avatarUrl
-  });
-  return fileID || avatarUrl;
+  const cloudPath = `avatars/${me.openid}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const { fileID } = await wx.cloud.uploadFile({ cloudPath, filePath: avatarUrl });
+  return fileID || '';
 }
 
 async function resolveCloudAvatarUrl(avatarFileId, fallbackUrl) {
@@ -321,6 +314,7 @@ function clearAvatarUrlCache(avatarFileId) {
 }
 
 async function ensureMe() {
+  privacy.requireConsent();
   if (cachedMe) return cachedMe;
   if (ensuringMePromise) return ensuringMePromise;
   ensuringMePromise = initializeMe();
@@ -371,11 +365,7 @@ async function callTableOp(action, data) {
   } catch (error) {
     console.error('[tableOps callFunction error]', {
       action,
-      payload,
-      error,
-      message: error && error.message,
       errCode: error && error.errCode,
-      errMsg: error && error.errMsg
     });
     if (
       error &&
@@ -389,8 +379,6 @@ async function callTableOp(action, data) {
   if (!result || !result.ok) {
     console.error('[tableOps business error]', {
       action,
-      payload,
-      result
     });
     const message = (result && result.message) || '云端操作失败';
     if (message === '未知操作') {
@@ -1003,10 +991,10 @@ async function createTable(payload) {
   );
 }
 
-async function joinTable(tableId, playerId, name, avatarUrl) {
+async function joinTable(tableId, playerId, name, avatarUrl, shareCode) {
   return withCloudOnly(async () => {
     const savedAvatarUrl = await uploadCloudAvatar(avatarUrl);
-    return callTableOp('joinTable', { tableId, playerId, name, avatarFileId: savedAvatarUrl });
+    return callTableOp('joinTable', { tableId, playerId, name, avatarFileId: savedAvatarUrl, shareCode });
   });
 }
 
@@ -1065,7 +1053,20 @@ async function deleteGroup(tableId) {
   return withCloudOnly(() => callTableOp('deleteGroup', { tableId }));
 }
 
+function clearLocalData() {
+  cachedMe = null;
+  clearAvatarUrlCache();
+  [STORAGE_KEY, OPENID_KEY, MODE_KEY, NOTICE_SEEN_KEY, TABLE_LIST_CACHE_KEY, 'mahjong_table_list_cache_v1', 'mahjong_privacy_return'].forEach((key) => wx.removeStorageSync(key));
+}
+
+async function deleteMyData() {
+  // Deletion remains available after consent is withdrawn; it never loads user records.
+  return callTableOp('deleteMyData', {});
+}
+
 module.exports = {
+  clearLocalData,
+  deleteMyData,
   listTables,
   listGroupTables,
   getTable,

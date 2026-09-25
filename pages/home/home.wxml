@@ -1,16 +1,17 @@
 <view class="page home-page">
+  <view class="entertainment-notice">仅供娱乐。积分不代表金钱，不得用于赌博、兑换或资金结算。</view>
   <view class="top-actions">
     <view class="mode-tag {{mode}}">
       {{modeText}}
     </view>
-    <view></view>
+    <navigator url="/pages/legal/legal">隐私说明</navigator>
     <navigator url="/pages/profile/profile">我的</navigator>
   </view>
 
   <view class="hero-card">
     <view class="hero-copy">
       <view class="eyebrow">牌桌记分本</view>
-      <view class="hero-title">起桌、给分、结账，别糊涂</view>
+      <view class="hero-title">起桌、给分、汇总，别糊涂</view>
       <view class="hero-desc">牌友扫码入座，分数当场落账，散场有明细。</view>
       <view class="hero-stats">
         <view>
@@ -23,7 +24,7 @@
         </view>
         <view>
           <text>{{quickStats.pendingGroups}}</text>
-          <text>待结账</text>
+          <text>待汇总</text>
         </view>
       </view>
     </view>
@@ -160,7 +161,7 @@
     <view class="settlement-title">结算本次对局</view>
     <view class="settlement-subtitle">请输入倍率后结算本次对局</view>
     <view class="settlement-input-row">
-      <input type="digit" value="{{settlementInputValue}}" bindinput="onHomeSettlementInput" placeholder="例如 0.3" />
+      <input type="digit" value="{{settlementInputValue}}" bindinput="onHomeSettlementInput" placeholder="请输入积分倍率" />
     </view>
     <view class="settlement-actions">
       <button bindtap="closeHomeSettlement">取消</button>

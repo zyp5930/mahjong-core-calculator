@@ -1,4 +1,5 @@
 <view class="room-page">
+  <view class="entertainment-notice">仅供娱乐。积分不代表金钱，不得用于赌博、兑换或资金结算。</view>
   <view class="toolbar">
     <button class="tool invite-tool" bindtap="openInvite">
       <text class="tool-icon">邀</text>
@@ -27,7 +28,7 @@
       </view>
     </view>
     <view class="table-state {{table.status}}">
-      {{table.status === 'active' ? '开打中' : (tablePendingSettlement ? '待结账' : '已收桌')}}
+      {{table.status === 'active' ? '开打中' : (tablePendingSettlement ? '待汇总' : '已收桌')}}
     </view>
   </view>
 
@@ -137,7 +138,7 @@
     <view class="settlement-title">{{settlementTitle}}</view>
     <view class="settlement-subtitle">{{settlementSubtitle}}</view>
     <view class="settlement-input-row">
-      <input type="digit" value="{{endInputValue}}" bindinput="onEndInput" placeholder="例如 0.3" />
+      <input type="digit" value="{{endInputValue}}" bindinput="onEndInput" placeholder="请输入积分倍率" />
     </view>
     <view class="settlement-actions">
       <button bindtap="closeSettlement">取消</button>

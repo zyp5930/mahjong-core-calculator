@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk');
+const crypto = require('crypto');
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
@@ -8,12 +9,14 @@ const db = cloud.database();
 const _ = db.command;
 const avatarColors = ['#6b9fe8', '#45b7a8', '#f16f5d', '#8a7ee8', '#d69a25', '#5f7285'];
 
+const { checkText, rejectAvatar, rateLimit, publicData, deleteMyData, getDeletionStatus, assertNotDeleting } = require('./safety')(cloud, db);
+
 function makeId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function makeShareCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  return crypto.randomBytes(10).toString('hex').toUpperCase();
 }
 
 function normalizeScore(value) {
@@ -64,7 +67,7 @@ function getSettlementStatus(table) {
 }
 
 function ok(data) {
-  return { ok: true, data };
+  return { ok: true, data: publicData(data) };
 }
 
 function fail(message) {
@@ -74,12 +77,6 @@ function fail(message) {
 function maskOpenid(openid) {
   if (!openid) return '';
   return `***${String(openid).slice(-6)}`;
-}
-
-function getValueSummary(value) {
-  if (Array.isArray(value)) return `array(${value.length})`;
-  if (value === null) return 'null';
-  return typeof value;
 }
 
 function cleanForDb(value) {
@@ -100,69 +97,11 @@ function cleanForDb(value) {
   return value === undefined ? undefined : value;
 }
 
-function findUndefinedPaths(value, prefix = 'data') {
-  if (value === undefined) return [prefix];
-  if (!value || typeof value !== 'object') return [];
-  if (Array.isArray(value)) {
-    return value.reduce((paths, item, index) => (
-      paths.concat(findUndefinedPaths(item, `${prefix}[${index}]`))
-    ), []);
-  }
-  return Object.keys(value).reduce((paths, key) => (
-    paths.concat(findUndefinedPaths(value[key], `${prefix}.${key}`))
-  ), []);
-}
-
-function getTableSummary(table) {
-  if (!table) return null;
-  return {
-    id: table._id || table.id || '',
-    name: table.name,
-    shareCode: table.shareCode,
-    ownerOpenid: maskOpenid(table.ownerOpenid),
-    status: table.status,
-    playerCount: (table.players || []).length,
-    recordCount: (table.records || []).length,
-    participantCount: (table.participantOpenids || []).length,
-    topLevelKeys: Object.keys(table),
-    topLevelTypes: Object.keys(table).reduce((summary, key) => ({
-      ...summary,
-      [key]: getValueSummary(table[key])
-    }), {})
-  };
-}
-
-function getWriteSummary(data) {
-  return {
-    keys: Object.keys(data),
-    types: Object.keys(data).reduce((summary, key) => ({
-      ...summary,
-      [key]: getValueSummary(data[key])
-    }), {}),
-    players: (data.players || []).map((player, index) => ({
-      index,
-      keys: Object.keys(player),
-      id: player.id,
-      openid: maskOpenid(player.openid),
-      name: player.name,
-      avatarUrlType: getValueSummary(player.avatarUrl),
-      avatarFileIdType: getValueSummary(player.avatarFileId),
-      score: player.score
-    })),
-    records: (data.records || []).map((record, index) => ({
-      index,
-      keys: Object.keys(record),
-      id: record.id,
-      amount: record.amount,
-      revokedAtType: getValueSummary(record.revokedAt)
-    }))
-  };
-}
-
 function buildTableListItem(table) {
   if (!table) return null;
   return {
     _id: table._id || table.id || '',
+    contentChecked: table.contentChecked === true,
     name: table.name,
     shareCode: table.shareCode,
     ownerOpenid: table.ownerOpenid,
@@ -194,16 +133,13 @@ function buildTableListItem(table) {
   };
 }
 
-function logError(label, error, context) {
-  console.error(label, {
-    context,
-    error,
-    message: error && error.message,
-    errCode: error && error.errCode,
-    errMsg: error && error.errMsg,
-    code: error && error.code,
-    stack: error && error.stack
-  });
+function logError(label, error) {
+  console.error(label, { code: String(error && (error.errCode || error.code) || 'INTERNAL') });
+}
+
+function isDocumentNotFound(error) {
+  const message = String((error && (error.errMsg || error.message)) || '');
+  return /document.*(not.*exist|not.*found)|DOCUMENT_NOT_EXIST/i.test(message);
 }
 
 function getErrorMessage(error) {
@@ -265,15 +201,7 @@ async function getTableById(tableId) {
     const { data } = await db.collection('tables').doc(tableId).get();
     return data || null;
   } catch (error) {
-    const message = (error && error.message) || String(error || '');
-    if (
-      message.includes('document') ||
-      message.includes('does not exist') ||
-      message.includes('not exist') ||
-      message.includes('DOCUMENT_NOT_EXIST')
-    ) {
-      return null;
-    }
+    if (isDocumentNotFound(error)) return null;
     throw error;
   }
 }
@@ -285,39 +213,27 @@ function canReadTable(table, openid) {
 
 async function attachAvatarUrls(table, openid, options = {}) {
   if (!table) return table;
-  if (!options.force && !canReadTable(table, openid)) return table;
+  if (!options.force && !canReadTable(table, openid)) throw new Error('无权查看该牌局');
   const players = table.players || [];
   const avatarFileIds = Array.from(new Set(players
     .map((player) => player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : ''))
     .filter(Boolean)));
   if (!avatarFileIds.length) return table;
   try {
-    const result = await cloud.getTempFileURL({
-      fileList: avatarFileIds
-    });
+    const result = await cloud.getTempFileURL({ fileList: avatarFileIds });
     const urlMap = (result.fileList || []).reduce((map, item) => {
-      if (item.fileID && item.tempFileURL) {
-        map[item.fileID] = item.tempFileURL;
-      }
+      if (item.fileID && item.tempFileURL) map[item.fileID] = item.tempFileURL;
       return map;
     }, {});
     return {
       ...table,
       players: players.map((player) => {
         const avatarFileId = player.avatarFileId || (/^cloud:\/\//.test(String(player.avatarUrl || '')) ? player.avatarUrl : '');
-        return {
-          ...player,
-          avatarFileId,
-          avatarUrl: urlMap[avatarFileId] || ''
-        };
+        return { ...player, avatarFileId, avatarUrl: urlMap[avatarFileId] || '' };
       })
     };
   } catch (error) {
-    logError('[tableOps attachAvatarUrls failed]', error, {
-      tableId: table._id || table.id || '',
-      openid: maskOpenid(openid),
-      avatarCount: avatarFileIds.length
-    });
+    logError('[tableOps attachAvatarUrls failed]', error);
     return table;
   }
 }
@@ -333,6 +249,7 @@ async function updateTable(tableId, table, options = {}) {
     score: normalizeScore(player.score),
     isOwner: !!player.isOwner,
     avatarColor: player.avatarColor || avatarColors[index % avatarColors.length],
+    deleted: !!player.deleted,
     joinedAt: player.joinedAt || Date.now()
   }));
   const records = (table.records || []).map((record) => ({
@@ -351,6 +268,7 @@ async function updateTable(tableId, table, options = {}) {
     revokedAt: record.revokedAt || null
   }));
   const data = {
+    contentChecked: table.contentChecked === true,
     name: table.name,
     shareCode: table.shareCode,
     ownerOpenid: table.ownerOpenid,
@@ -388,32 +306,22 @@ async function updateTable(tableId, table, options = {}) {
       readAt: item.readAt || null
     }))
   };
-  const undefinedPaths = findUndefinedPaths(data);
   const cleanData = cleanForDb(data);
-  console.log('[tableOps updateTable before set]', {
-    tableId,
-    source: getTableSummary(table),
-    undefinedPaths,
-    write: getWriteSummary(cleanData)
-  });
-  try {
-    const collection = (options.transaction || db).collection('tables');
-    if (options.transaction) {
-      await collection.doc(tableId).update({ data: cleanData });
-    } else {
-      await collection.doc(tableId).set({ data: cleanData });
+
+  const write = async (transaction) => {
+    const ref = transaction.collection('tables').doc(tableId);
+    const { data: current } = await ref.get();
+    for (const id of new Set([cloud.getWXContext().OPENID, ...(table.participantOpenids || []), ...(current && current.participantOpenids || [])])) {
+      if (id) await assertNotDeleting(id, transaction);
     }
-  } catch (error) {
-    logError('[tableOps updateTable set failed]', error, {
-      tableId,
-      source: getTableSummary(table),
-      undefinedPaths,
-      rawWrite: getWriteSummary(data),
-      cleanWrite: getWriteSummary(cleanData)
-    });
-    throw error;
-  }
-  return options.transaction ? table : getTableById(tableId);
+    if (!current || (Number(current.revision) || 0) !== (Number(table.revision) || 0)) {
+      throw new Error('数据已更新，请刷新后重试');
+    }
+    await ref.update({ data: { ...cleanData, revision: (Number(current.revision) || 0) + 1 } });
+    return { ...table, ...cleanData, revision: (Number(current.revision) || 0) + 1 };
+  };
+  if (options.transaction) return write(options.transaction);
+  return runTransactionWithRetry(write);
 }
 
 async function listTables(event, openid) {
@@ -427,6 +335,7 @@ async function listTables(event, openid) {
   const { data } = await db.collection('tables')
     .where(filter)
     .field({
+      contentChecked: true,
       name: true,
       shareCode: true,
       ownerOpenid: true,
@@ -443,16 +352,21 @@ async function listTables(event, openid) {
       endedAt: true,
       muted: true,
       settlement: true,
+      participantOpenids: true,
       players: true
     })
     .skip(skip)
     .limit(limit)
     .orderBy('createdAt', 'desc')
     .get();
-  return data.map(buildTableListItem);
+  return Promise.all(data.map(async (item) => buildTableListItem(await attachAvatarUrls(item, openid))));
 }
 
 async function createTable(event, openid) {
+  if (!Array.isArray(event.playerNames) || event.playerNames.length < 1 || event.playerNames.length > 8) throw new Error('参与人数应为1至8人');
+  rejectAvatar(event.ownerAvatarUrl, openid);
+  const checkedName = await checkText(event.name || '麻将计分桌', 40, openid);
+  for (const name of event.playerNames) await checkText(name, 20, openid);
   const names = (event.playerNames || []).filter((item) => String(item || '').trim());
   const playerNames = names.length ? names : ['我', '玩家2', '玩家3', '玩家4'];
   const players = playerNames.map((name, index) => normalizePlayer(name, index, openid, index === 0));
@@ -464,7 +378,9 @@ async function createTable(event, openid) {
     players[0].avatarUrl = '';
   }
   const table = {
-    name: event.name || '麻将计分桌',
+    name: checkedName,
+    contentChecked: true,
+    revision: 0,
     shareCode: makeShareCode(),
     ownerOpenid: openid,
     status: 'active',
@@ -485,43 +401,50 @@ async function createTable(event, openid) {
     notifications: [],
     settlement: null
   };
-  const result = await db.collection('tables').add({ data: table });
+  const result = await db.runTransaction(async (tx) => {
+    await assertNotDeleting(openid, tx);
+    const id = makeId('table');
+    await tx.collection('tables').doc(id).set({ data: table });
+    return { _id: id };
+  });
   return attachAvatarUrls(await getTableById(result._id), openid);
 }
 
 async function getTable(tableId, openid) {
-  return attachAvatarUrls(await getTableById(tableId), openid, { force: true });
+  const table = await getTableById(tableId);
+  if (!table) return null;
+  if (!canReadTable(table, openid)) throw new Error('无权查看该牌局');
+  return attachAvatarUrls(table, openid);
 }
 
 async function getTableByShareCode(shareCode, openid) {
-  const { data } = await db.collection('tables')
-    .where({ shareCode })
-    .limit(1)
-    .get();
-  return attachAvatarUrls(data[0] || null, openid, { force: true });
+  if (typeof shareCode !== 'string' || !/^[A-Z0-9]{6,20}$/.test(shareCode)) throw new Error('分享码无效');
+  const { data } = await db.collection('tables').where({ shareCode }).limit(1).get();
+  const table = data[0];
+  if (!table) return null;
+  if (canReadTable(table, openid)) return attachAvatarUrls(table, openid);
+  if (table.status !== 'active') throw new Error('该邀请已失效');
+  // Invite preview contains no member names, avatars, identifiers or score history.
+  return { _id: table._id, name: table.contentChecked ? table.name : '受邀积分牌局', status: table.status,
+    players: [], records: [], playerCount: table.players.length, invitePreview: true };
 }
 
 async function joinTable(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) throw new Error('牌局不存在');
-  console.log('[tableOps joinTable loaded]', {
-    event: {
-      tableId: event.tableId,
-      playerId: event.playerId,
-      name: event.name,
-      hasAvatarUrl: !!event.avatarUrl,
-      hasAvatarFileId: !!event.avatarFileId
-    },
-    openid: maskOpenid(openid),
-    table: getTableSummary(table)
-  });
+
 
   const existing = table.players.find((player) => player.openid === openid);
   if (existing) return existing;
+  if (typeof event.shareCode !== 'string' || event.shareCode !== table.shareCode) throw new Error('请使用有效邀请加入');
+  if (table.status !== 'active') throw new Error('牌局已结束');
+  if (table.players.length >= 8 && !event.playerId) throw new Error('牌局最多8人');
+  rejectAvatar(event.avatarFileId || event.avatarUrl, openid);
+  const checkedName = await checkText(event.name, 20, openid);
 
   let player = table.players.find((item) => item.id === event.playerId);
   if (!player && event.playerId) throw new Error('玩家不存在');
-  if (player && player.openid) throw new Error('该玩家已被绑定');
+  if (player && (player.openid || player.deleted)) throw new Error('该身份不可选择');
   if (!player) {
     player = normalizePlayer(event.name, table.players.length, openid, false);
     table.players.push(player);
@@ -529,7 +452,7 @@ async function joinTable(event, openid) {
 
   player.groupPlayerId = player.groupPlayerId || player.id;
   player.openid = openid;
-  player.name = String(event.name || player.name).trim() || player.name;
+  player.name = checkedName;
   player.avatarFileId = event.avatarFileId || event.avatarUrl || player.avatarFileId || '';
   player.avatarUrl = '';
   player.joinedAt = Date.now();
@@ -546,13 +469,12 @@ async function updateMyProfile(event, openid) {
   const player = table.players.find((item) => item.openid === openid);
   if (!player) throw new Error('请先加入牌局');
 
-  const name = String(event.name || '').trim();
+  rejectAvatar(event.avatarFileId || event.avatarUrl, openid);
+  const name = await checkText(event.name, 20, openid);
   if (!name) throw new Error('请输入昵称');
   player.name = name;
-  if (event.avatarFileId !== undefined || event.avatarUrl !== undefined) {
-    player.avatarFileId = event.avatarFileId || event.avatarUrl || '';
-    player.avatarUrl = '';
-  }
+  // Keep legacy file references until the user's deletion request cleans them up.
+  player.avatarUrl = '';
   const updatedTable = await updateTable(event.tableId, table);
   const updatedPlayer = (updatedTable.players || []).find((item) => item.id === player.id) || player;
   return (await attachAvatarUrls({ ...updatedTable, players: [updatedPlayer] }, openid)).players[0];
@@ -584,7 +506,7 @@ async function giveScore(event, openid) {
     if (table.status !== 'active') throw new Error('牌局已结束');
 
     const amount = Number(event.amount);
-    if (!Number.isInteger(amount) || amount <= 0) throw new Error('请输入有效分数');
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000) throw new Error('请输入有效分数');
     if (event.fromPlayerId === event.toPlayerId) throw new Error('不能给自己计分');
 
     const fromPlayer = table.players.find((player) => player.id === event.fromPlayerId);
@@ -592,6 +514,7 @@ async function giveScore(event, openid) {
     if (!fromPlayer || !toPlayer) throw new Error('玩家不存在');
     if (fromPlayer.openid !== openid) throw new Error('只能操作你自己的身份');
 
+    if (Math.abs(fromPlayer.score - amount) > 1000000000 || Math.abs(toPlayer.score + amount) > 1000000000) throw new Error('累计积分超出范围');
     fromPlayer.score -= amount;
     toPlayer.score += amount;
     table.updatedAt = Date.now();
@@ -673,9 +596,10 @@ async function undoLastGive(event, openid) {
   });
 }
 
-async function toggleMuted(event) {
+async function toggleMuted(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) throw new Error('牌局不存在');
+  if (!canReadTable(table, openid)) throw new Error('无权修改该牌局');
   table.muted = !table.muted;
   return updateTable(event.tableId, table);
 }
@@ -744,7 +668,7 @@ function markTableEnded(table) {
 
 function settleTableWithMultiplier(table, multiplier) {
   const value = Number(multiplier);
-  if (!Number.isFinite(value) || value <= 0) throw new Error('请输入有效倍率');
+  if (!Number.isFinite(value) || value <= 0 || value > 1000) throw new Error('请输入大于0且不超过1000的积分倍率');
   if (table.settlement) return false;
   if (table.status === 'active') {
     markTableEnded(table);
@@ -758,10 +682,13 @@ function settleTableWithMultiplier(table, multiplier) {
 
 async function getGroupTables(table) {
   const groupId = getGroupId(table);
-  const { data } = await db.collection('tables')
-    .where({ groupId })
-    .limit(100)
-    .get();
+  const data = [];
+  let page;
+  do {
+    page = (await db.collection('tables').where({ groupId, ownerOpenid: table.ownerOpenid })
+      .orderBy('_id', 'asc').skip(data.length).limit(100).get()).data;
+    data.push(...page);
+  } while (page.length === 100);
   const tables = data.length ? data : [table];
   return tables.sort((left, right) => (
     (Number(left.roundNo) || 1) - (Number(right.roundNo) || 1) ||
@@ -771,7 +698,7 @@ async function getGroupTables(table) {
 
 function buildNextTable(table) {
   const now = Date.now();
-  const players = (table.players || []).map((player, index) => ({
+  const players = (table.players || []).filter((player) => !player.deleted).map((player, index) => ({
     ...player,
     id: makeId('player'),
     groupPlayerId: player.groupPlayerId || player.id,
@@ -782,6 +709,8 @@ function buildNextTable(table) {
   }));
   return {
     name: table.name,
+    contentChecked: table.contentChecked === true,
+    revision: 0,
     shareCode: makeShareCode(),
     ownerOpenid: table.ownerOpenid,
     status: 'active',
@@ -870,14 +799,21 @@ async function startNextTable(event, openid) {
     const existingNext = await getTableById(table.nextTableId);
     if (existingNext) return attachAvatarUrls(existingNext, openid, { force: true });
   }
-  normalizeGroupPlayers(table);
-  const nextTable = buildNextTable(table);
-  const result = await db.collection('tables').add({ data: cleanForDb(nextTable) });
-  table.groupId = getGroupId(table);
-  table.nextTableId = result._id;
-  table.updatedAt = Date.now();
-  await updateTable(event.tableId, table);
-  return attachAvatarUrls(await getTableById(result._id), openid, { force: true });
+  return runTransactionWithRetry(async (tx) => {
+    const source = (await tx.collection('tables').doc(event.tableId).get()).data;
+    if (!source || source.ownerOpenid !== openid || source.status !== 'ended' || source.groupSettlement) throw new Error('当前不能开启下一局');
+    if (source.nextTableId) return (await tx.collection('tables').doc(source.nextTableId).get()).data;
+    for (const id of new Set(source.participantOpenids || [])) await assertNotDeleting(id, tx);
+    normalizeGroupPlayers(source);
+    const next = buildNextTable(source);
+    const id = makeId('table');
+    await tx.collection('tables').doc(id).set({ data: cleanForDb(next) });
+    source.nextTableId = id;
+    source.groupId = getGroupId(source);
+    source.updatedAt = Date.now();
+    await updateTable(event.tableId, source, { transaction: tx });
+    return { ...next, _id: id };
+  });
 }
 
 async function settleGroup(event, openid) {
@@ -895,7 +831,7 @@ async function settleGroup(event, openid) {
     await Promise.all(groupTables.map(async (item) => {
       if (item.settlement) return;
       settleTableWithMultiplier(item, event.multiplier);
-      await updateTable(item._id, item);
+      Object.assign(item, await updateTable(item._id, item));
     }));
   }
   if (groupTables.some((item) => item.status !== 'ended')) throw new Error('还有未结束的对局');
@@ -914,7 +850,20 @@ async function deleteTable(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) return true;
   if (table.ownerOpenid !== openid) throw new Error('只有桌主可以删除牌局');
-  await db.collection('tables').doc(event.tableId).remove();
+  await db.runTransaction(async (tx) => {
+    const current = (await tx.collection('tables').doc(event.tableId).get()).data;
+    if (!current || current.ownerOpenid !== openid) throw new Error('牌局已更新，请刷新');
+    for (const id of new Set(current.participantOpenids || [])) await assertNotDeleting(id, tx);
+    // Legacy files may be shared across rounds. Keep references for the deletion workflow.
+    for (const player of current.players || []) {
+      const file = player.avatarFileId || player.avatarUrl || '';
+      if (player.openid && file.startsWith('cloud://') && file.includes(`/avatars/${player.openid}/`)) {
+        const id = crypto.createHash('sha256').update(`${player.openid}:${file}`).digest('hex');
+        await tx.collection('legacy_avatar_files').doc(id).set({ data: { ownerOpenid: player.openid, fileID: file } });
+      }
+    }
+    await tx.collection('tables').doc(event.tableId).remove();
+  });
   return true;
 }
 
@@ -922,26 +871,23 @@ async function deleteGroup(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) return { deletedCount: 0 };
   if (table.ownerOpenid !== openid) throw new Error('只有桌主可以删除牌局');
-
   const groupTables = await getGroupTables(table);
-  await Promise.all(groupTables.map((item) => (
-    db.collection('tables').doc(item._id || item.id).remove()
-  )));
+  for (const item of groupTables) await deleteTable({ tableId: item._id }, openid);
   return { deletedCount: groupTables.length };
 }
 
-exports.main = async (event) => {
+exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
-  console.log('[tableOps main start]', {
-    action: event && event.action,
-    event: {
-      ...event,
-      avatarUrl: event && event.avatarUrl ? `[avatarUrl length ${String(event.avatarUrl).length}]` : event && event.avatarUrl,
-      avatarFileId: event && event.avatarFileId ? `[avatarFileId length ${String(event.avatarFileId).length}]` : event && event.avatarFileId
-    },
-    openid: maskOpenid(OPENID)
-  });
+
   try {
+    if (!OPENID) throw new Error('请从小程序内访问');
+    if (event.action === 'deleteMyData') return ok(await deleteMyData(OPENID));
+    if (event.action === 'getDeletionStatus') return ok(await getDeletionStatus(OPENID));
+    if (typeof event.action !== 'string') throw new Error('无效操作');
+    if (event.tableId !== undefined && (typeof event.tableId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(event.tableId))) throw new Error('无效牌局');
+    const deletion = await getDeletionStatus(OPENID);
+    if (deletion.pending) throw new Error('个人数据删除尚未完成，请在我的页面继续删除');
+    await rateLimit(OPENID, event.action);
     switch (event.action) {
       case 'listTables':
         return ok(await listTables(event, OPENID));
@@ -960,7 +906,7 @@ exports.main = async (event) => {
       case 'undoLastGive':
         return ok(await undoLastGive(event, OPENID));
       case 'toggleMuted':
-        return ok(await toggleMuted(event));
+        return ok(await toggleMuted(event, OPENID));
       case 'endTable':
         return ok(await endTable(event, OPENID));
       case 'settleTable':
@@ -986,6 +932,6 @@ exports.main = async (event) => {
       },
       openid: maskOpenid(OPENID)
     });
-    return fail(getErrorMessage(error));
+    return fail(error.errCode || error.code ? '服务暂不可用，请稍后重试或联系开发者' : getErrorMessage(error));
   }
 };

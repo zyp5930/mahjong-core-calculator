@@ -2,7 +2,7 @@ const store = require('../../services/store');
 
 const NOTICE_RECENT_WINDOW = 2 * 60 * 1000;
 const NOTICE_TOAST_DURATION = 3000;
-const TABLE_POLL_INTERVAL = 30000;
+const TABLE_POLL_INTERVAL = 5000;
 
 Page({
   data: {
@@ -47,7 +47,7 @@ Page({
     this.avatarDisplayCache = {};
     this.failedAvatarKeys = {};
     this.avatarRetryCounts = {};
-    await store.ensureMe();
+    try { await store.ensureMe(); } catch (error) { return; }
     this.setData({
       mode: store.getStoredMode(),
       pendingAutoInvite: options.autoInvite === '1',
@@ -71,7 +71,7 @@ Page({
   },
 
   async onShow() {
-    await store.ensureMe();
+    try { await store.ensureMe(); } catch (error) { return; }
     this.setData({ mode: store.getStoredMode() });
     if (this.data.tableId) this.loadTable();
     this.startWatching();
@@ -104,18 +104,7 @@ Page({
   },
 
   async resolveShareCode(shareCode) {
-    const table = await store.getTableByShareCode(shareCode);
-    if (!table) {
-      wx.showToast({ title: '分享码无效', icon: 'none' });
-      return;
-    }
-    this.setData({ tableId: table.id });
-    this.setData({
-      table,
-      players: this.buildPlayers(table.players, table.settlement)
-    });
-    this.loadTable();
-    this.startWatching();
+    wx.redirectTo({ url: `/pages/join/join?shareCode=${encodeURIComponent(shareCode)}` });
   },
 
   async loadTable() {
@@ -330,31 +319,9 @@ Page({
   },
 
   startWatching() {
+    // Database is server-only; all reads use the membership-checked API.
     this.stopWatching();
-    if (!this.data.tableId || store.getStoredMode() !== 'cloud' || !wx.cloud || !wx.cloud.database) return;
-    try {
-      const db = wx.cloud.database();
-      this.tableWatcher = db.collection('tables').doc(this.data.tableId).watch({
-        onChange: async (snapshot) => {
-          const rawTable = snapshot && snapshot.docs && snapshot.docs[0];
-          if (!rawTable) return;
-          try {
-            const table = await store.normalizeTable(rawTable);
-            this.applyTable(table);
-          } catch (error) {
-            console.error('[table watch update failed]', error);
-          }
-        },
-        onError: () => {
-          this.stopWatching();
-          this.startPolling();
-        }
-      });
-      this.stopPolling();
-    } catch (error) {
-      this.stopWatching();
-      this.startPolling();
-    }
+    this.startPolling();
   },
 
   startPolling() {
@@ -374,6 +341,7 @@ Page({
   },
 
   stopWatching() {
+    this.stopPolling();
     if (this.tableWatcher && typeof this.tableWatcher.close === 'function') {
       this.tableWatcher.close();
     }
@@ -588,7 +556,7 @@ Page({
         ? '请输入倍率后汇总所有待结算对局'
         : '请输入倍率后结算本局积分',
       settlementConfirmText: isGroupMode ? '总结算' : '结算',
-      endInputValue: '0.3'
+      endInputValue: ''
     });
   },
 

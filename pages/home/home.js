@@ -1,4 +1,5 @@
 const store = require('../../services/store');
+const privacy = require('../../services/privacy');
 const { formatDuration, formatTime, normalizeScore } = require('../../utils/format');
 
 function getLoadErrorState(error) {
@@ -71,10 +72,15 @@ Page({
     emptySubtitle: '稍等一下，正在同步牌桌。',
     settlementVisible: false,
     settlementTableId: '',
-    settlementInputValue: '0.3'
+    settlementInputValue: ''
   },
 
   async onShow() {
+    if (!privacy.hasConsent()) {
+      this.formattedTables = null;
+      this.setData({ tables: [], tableGroups: [], latestGroup: null, loadingTables: false, modeText: '未启用云同步', emptyTitle: '欢迎使用积分工具', emptySubtitle: '创建或加入前，请阅读隐私与使用说明。' });
+      return;
+    }
     const generation = this.loadGeneration = (this.loadGeneration || 0) + 1;
     this.tableRefreshing = true;
     this.tablePageSize = 12;
@@ -134,6 +140,7 @@ Page({
   },
 
   async loadTables() {
+    if (!privacy.hasConsent()) return;
     const generation = this.loadGeneration = (this.loadGeneration || 0) + 1;
     this.tableRefreshing = true;
     this.tableLoadingMore = false;
@@ -528,7 +535,7 @@ Page({
     this.setData({
       settlementVisible: true,
       settlementTableId: tableId,
-      settlementInputValue: '0.3'
+      settlementInputValue: ''
     });
   },
 
@@ -536,7 +543,7 @@ Page({
     this.setData({
       settlementVisible: false,
       settlementTableId: '',
-      settlementInputValue: '0.3'
+      settlementInputValue: ''
     });
   },
 

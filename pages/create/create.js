@@ -19,6 +19,10 @@ Page({
     creating: false
   },
 
+  onLoad() {
+    try { require('../../services/privacy').requireConsent(); } catch (error) { return; }
+  },
+
   onNameInput(event) {
     this.setData({ name: event.detail.value });
   },
@@ -28,13 +32,8 @@ Page({
   },
 
   onChooseAvatar(event) {
-    this.setData({
-      ownerAvatarUrl: event.detail.avatarUrl || '',
-      ownerNameInputFocus: false
-    });
-    setTimeout(() => {
-      this.setData({ ownerNameInputFocus: true });
-    }, 80);
+    this.setData({ ownerAvatarUrl: event.detail.avatarUrl || '', ownerNameInputFocus: false });
+    setTimeout(() => this.setData({ ownerNameInputFocus: true }), 80);
   },
 
   onOwnerNameBlur() {

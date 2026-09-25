@@ -3,6 +3,7 @@ const store = require('../../services/store');
 Page({
   data: {
     tableId: '',
+    shareCode: '',
     table: {},
     players: [],
     selectedId: '',
@@ -14,6 +15,11 @@ Page({
   },
 
   async onLoad(options) {
+    try {
+      await store.ensureMe();
+    } catch (error) {
+      return;
+    }
     const tableId = options.id || '';
     const shareCode = options.shareCode || options.scene || '';
     if (tableId) {
@@ -28,17 +34,23 @@ Page({
   },
 
   async resolveShareCode(shareCode) {
-    const table = await store.getTableByShareCode(shareCode);
+    let table;
+    try { table = await store.getTableByShareCode(shareCode); } catch (error) {
+      wx.showToast({ title: error.message || '邀请加载失败', icon: 'none' }); return;
+    }
     if (!table) {
       wx.showToast({ title: '分享码无效', icon: 'none' });
       return;
     }
-    this.setData({ tableId: table.id });
+    this.setData({ tableId: table.id, shareCode });
     this.applyTable(table);
   },
 
   async loadTable() {
-    const table = await store.getTable(this.data.tableId);
+    let table;
+    try { table = await store.getTable(this.data.tableId); } catch (error) {
+      wx.showToast({ title: '请通过有效邀请加入牌局', icon: 'none' }); return;
+    }
     if (!table) {
       wx.showToast({ title: '牌局不存在', icon: 'none' });
       return;
@@ -94,14 +106,8 @@ Page({
   },
 
   onChooseAvatar(event) {
-    this.setData({
-      avatarUrl: event.detail.avatarUrl || '',
-      avatarFileId: '',
-      nameInputFocus: false
-    });
-    setTimeout(() => {
-      this.setData({ nameInputFocus: true });
-    }, 80);
+    this.setData({ avatarUrl: event.detail.avatarUrl || '', avatarFileId: '', nameInputFocus: false });
+    setTimeout(() => this.setData({ nameInputFocus: true }), 80);
   },
 
   onNameBlur() {
@@ -124,7 +130,8 @@ Page({
           this.data.tableId,
           this.data.selectedId,
           this.data.name,
-          this.data.avatarUrl
+          this.data.avatarUrl,
+          this.data.shareCode
         );
       }
       wx.redirectTo({

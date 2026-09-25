@@ -1,11 +1,32 @@
 {
   "description": "Mahjong score calculator mini program",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "prefix",
+        "value": "database_export"
+      },
+      {
+        "type": "folder",
+        "value": "tests"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
+        "value": "docs"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      }
+    ],
     "include": []
   },
   "setting": {
-    "urlCheck": false,
+    "urlCheck": true,
     "es6": true,
     "enhance": true,
     "postcss": true,

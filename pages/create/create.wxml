@@ -1,4 +1,5 @@
 <view class="page create-page">
+  <view class="entertainment-notice">仅供娱乐。积分不代表金钱，不得用于赌博、兑换或资金结算。</view>
   <view class="form card">
     <view class="form-header">
       <view>
@@ -12,7 +13,7 @@
     </view>
     <view class="field">
       <text class="label">牌局名称</text>
-      <input value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
+      <input maxlength="40" value="{{name}}" bindinput="onNameInput" placeholder="例如：周末麻将" />
     </view>
     <view class="field avatar-field">
       <text class="label">桌主头像</text>
@@ -26,7 +27,7 @@
     <view class="field">
       <text class="label">桌主昵称</text>
       <input
-        type="nickname"
+        type="nickname" maxlength="20"
         value="{{ownerName}}"
         focus="{{ownerNameInputFocus}}"
         cursor="{{ownerName.length}}"

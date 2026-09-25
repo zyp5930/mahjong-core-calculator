@@ -1,0 +1,23 @@
+<view class="page legal-page">
+  <view class="card legal-content">
+    <view class="legal-title">隐私保护与使用说明</view>
+    <view>版本日期：{{version}}</view>
+    <view>运营者公开称呼：{{operatorName}}（个人开发者）</view>
+    <view>联系邮箱：{{contactEmail}}</view>
+    <view class="legal-heading">服务用途</view>
+    <view>{{notice}}本工具只做多人积分记录，不提供充值、提现、兑换或收付款。</view>
+    <view class="legal-heading">会处理什么</view>
+    <view>同意云同步后，我们处理 openid、昵称、积分和操作时间；你主动选择头像时，会上传头像用于同桌展示。桌名和昵称会经过微信内容安全检测。</view>
+    <view class="legal-heading">谁能看到</view>
+    <view>昵称、头像和积分只向同桌受邀成员展示。数据存储和安全检测由微信云开发及相关微信服务提供。我们不出售个人信息。</view>
+    <view class="legal-heading">你的权利</view>
+    <view>你可以在“我的”修改资料、清除本机缓存、撤回同意或删除云端个人数据。删除会解除牌局关联并清理可追踪的头像；其他成员已保存的截图不受本工具控制。</view>
+    <view>拒绝或撤回后仍可查看本说明和联系方式；重新同意后才恢复云同步。投诉、访问或删除申请请联系 {{contactEmail}}。</view>
+    <button class="ghost-btn" bindtap="copyContact">复制联系邮箱</button>
+  </view>
+  <view wx:if="{{requestingConsent}}" class="card legal-content">
+    <checkbox-group bindchange="onAgreement"><label><checkbox value="agree" checked="{{agreed}}"/>我已阅读并同意以上隐私与使用说明</label></checkbox-group>
+    <button class="primary-btn" disabled="{{!agreed}}" bindtap="accept">同意并使用云同步</button>
+    <button class="ghost-btn" bindtap="decline">暂不同意，返回首页</button>
+  </view>
+</view>

@@ -1,75 +1,11 @@
-# 云开发接入说明
+# 云开发部署
 
-当前版本已经内置云开发实现，`services/store.js` 的牌局读写统一调用云函数，失败时直接提示错误，不会回退本地模式。要让不同微信用户扫码进入同一牌局并实时同步，需要把云环境和云函数部署好。
+当前版本通过 login、tableOps、tableCode 云函数提供计分服务，不再使用客户端数据库 watch。成员每5秒通过受权限检查的接口同步。
 
-## 必要步骤
+**请按 [上线交付清单](release-checklist.md) 的顺序创建辅助集合、配置仅服务端访问规则，再部署全部云函数和客户端。** 不要再使用“所有用户可读写”或开发测试权限。
 
-1. 在微信开发者工具中开通云开发。
-2. 在 [app.js](/Users/zyp/Documents/mahjong-core-calculator/app.js:3) 中填写云环境 ID：
+集合：tables、request_limits、privacy_jobs、privacy_locks、legacy_avatar_files。
 
-```js
-globalData: {
-  envId: '你的云环境 ID',
-  me: null
-}
-```
+服务端依赖已固定 wx-server-sdk 4.0.2。tableOps/config.json 声明文本安全检测权限，tableCode/config.json 声明小程序码权限。库版本、云调用权限、事务、索引必须在测试云环境验证。
 
-3. 创建云数据库集合：
-
-```text
-tables
-```
-
-4. 在开发者工具中分别上传并部署：
-
-```text
-cloudfunctions/login
-cloudfunctions/tableOps
-cloudfunctions/tableCode
-```
-
-`tableCode` 需要随目录里的 `config.json` 一起上传部署，它声明了 `wxacode.getUnlimited` 云调用权限。缺少这个文件或没有重新部署时，生成二维码会报 `-604101 function has no permission to call this API`。
-
-5. 给 `tables` 集合设置读写权限：
-
-```text
-仅创建者可读写
-```
-
-或者开发阶段先使用更宽松的测试权限，等功能跑通后再收紧。
-
-## 云端计分建议
-
-当前版本已经把给分和撤销都放到了 `tableOps` 云函数里，避免两个用户同时计分时分数覆盖。
-
-输入：
-
-```js
-{
-  tableId,
-  fromPlayerId,
-  toPlayerId,
-  amount
-}
-```
-
-云函数内执行：
-
-```text
-1. 校验牌局存在且 status 为 active。
-2. 校验调用者 openid 已绑定 fromPlayerId。
-3. 校验 fromPlayerId 和 toPlayerId 不相同。
-4. 写入 score_records。
-5. fromPlayer score -= amount。
-6. toPlayer score += amount。
-```
-
-## 实时同步
-
-当前版本在 [pages/room/room.js](/Users/zyp/Documents/mahjong-core-calculator/pages/room/room.js:1) 中使用 3 秒轮询刷新。这样部署最简单，也方便你先验证多人同步链路。
-
-后续优化建议：
-
-- 改成数据库 `watch` 监听，减少请求次数。
-- 将 `tables` 拆为 `tables` + `records` 两个集合，避免单文档越积越大。
-- 增加桌主强制撤销、踢人、锁定身份等管理能力。
+云环境 ID 在 app.js；已有 ID 未修改。二维码环境变量 MINIPROGRAM_ENV_VERSION 在测试环境设置 trial，在正式环境设置 release（默认值）。不要把正式发布连接到旧云函数或宽松权限的测试环境。

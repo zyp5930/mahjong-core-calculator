@@ -72,3 +72,5 @@ button::after {
 .muted {
   color: #7d8982;
 }
+
+.entertainment-notice { padding: 16rpx 20rpx; margin-bottom: 20rpx; color: #765b35; background: #fff2d8; border-radius: 14rpx; font-size: 24rpx; line-height: 1.6; }

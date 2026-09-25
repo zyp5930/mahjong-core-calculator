@@ -1,20 +1,13 @@
 <view class="page profile-page">
-  <view class="profile-card card">
-    <view class="avatar">我</view>
-    <view>
-      <view class="name">个人计分工具</view>
-      <view class="muted">填写云环境 ID 并部署云函数后，可让不同微信用户扫码同步。</view>
-    </view>
-  </view>
-
+  <view class="entertainment-notice">{{notice}}</view>
+  <view class="profile-card card"><view class="avatar">我</view><view><view class="name">个人积分工具</view><view class="muted">开发者：{{operatorName}}</view></view></view>
   <view class="menu card">
-    <button bindtap="copyOpenid">
-      <text>复制本机身份 ID</text>
-      <text class="arrow">›</text>
-    </button>
-    <button bindtap="clearData">
-      <text>清空本地数据</text>
-      <text class="arrow">›</text>
-    </button>
+    <navigator class="legal-link" url="/pages/legal/legal">隐私保护与使用说明 ›</navigator>
+    <button bindtap="copyContact"><text class="menu-label">联系开发者 / 举报反馈</text><text class="menu-arrow">›</text></button>
+    <button bindtap="clearData" disabled="{{deleting}}"><text class="menu-label">清除本地缓存</text><text class="menu-arrow">›</text></button>
+    <button bindtap="revokeConsent" disabled="{{deleting}}"><text class="menu-label">撤回隐私同意</text><text class="menu-arrow">›</text></button>
+    <button bindtap="deleteMyData" loading="{{deleting}}" disabled="{{deleting}}"><text class="menu-label menu-label-long">删除我的云端个人数据</text><text class="menu-arrow">›</text></button>
   </view>
+  <view class="contact-detail">联系邮箱：{{contactEmail}}</view>
+  <view class="contact-detail" wx:if="{{deletionProgress}}">{{deletionProgress}}</view>
 </view>
