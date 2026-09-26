@@ -18,7 +18,11 @@ Page({
     selectedRoundTrendTableId: '',
     showRoundTrend: false,
     roundTrendPlayers: [],
-    roundTrendLoading: false
+    roundTrendLoading: false,
+    showRoundWinTrend: false,
+    roundWinPlayers: [],
+    showGroupWinTrend: false,
+    groupWinPlayers: []
   },
 
   onLoad(options) {
@@ -141,7 +145,36 @@ Page({
     }, () => {
       this.updateScoreTrends(tables, currentTable, myPlayer);
       this.loadRoundTrend(this.selectedRoundTrendTableId);
+      this.loadAllRounds();
     });
+  },
+
+  loadAllRounds() {
+    const tables = this.groupTrendTables || [];
+    const pending = tables.filter((table) => (
+      table && table.id &&
+      !(this.roundTrendLoadedTableIds && this.roundTrendLoadedTableIds[table.id]) &&
+      this.roundTrendLoadingId !== table.id
+    ));
+    if (!pending.length) return;
+    const chunkSize = 5;
+    const loadChunk = (start) => {
+      if (start >= pending.length) return Promise.resolve();
+      const chunk = pending.slice(start, start + chunkSize);
+      return Promise.all(chunk.map((table) => store.getTable(table.id).then((full) => {
+        if (!full) return;
+        this.roundTrendTableCache = this.roundTrendTableCache || {};
+        this.roundTrendLoadedTableIds = this.roundTrendLoadedTableIds || {};
+        this.roundTrendTableCache[table.id] = full;
+        this.roundTrendLoadedTableIds[table.id] = true;
+      }).catch(() => null))).then(() => {
+        const latestTables = this.groupTrendTables || [];
+        const latestCurrent = latestTables[latestTables.length - 1] || null;
+        this.updateScoreTrends(latestTables, latestCurrent, latestCurrent && store.findMyPlayer(latestCurrent));
+        return loadChunk(start + chunkSize);
+      });
+    };
+    loadChunk(0);
   },
 
   async loadGroup() {
@@ -178,7 +211,9 @@ Page({
     const selectedTable = sortedTables.find((table) => table.id === selectedTableId) || currentTable;
     const roundTrend = this.buildRoundScoreTrend(selectedTable);
     const groupTrends = this.buildScoreTrends(sortedTables, myPlayer);
-    const trends = { ...groupTrends, ...roundTrend };
+    const roundWinTrend = this.buildRoundWinTrend(selectedTable);
+    const groupWinTrend = this.buildGroupWinTrend(sortedTables);
+    const trends = { ...groupTrends, ...roundTrend, ...roundWinTrend, ...groupWinTrend };
     this.setData({
       ...groupTrends,
       roundTrendTables: sortedTables.map((table) => ({
@@ -189,7 +224,11 @@ Page({
       selectedRoundTrendTableId: selectedTableId,
       showRoundTrend: roundTrend.showRoundTrend,
       roundTrendPlayers: roundTrend.roundTrendPlayers,
-      roundTrendLoading: this.roundTrendLoadingId === selectedTableId
+      roundTrendLoading: this.roundTrendLoadingId === selectedTableId,
+      showRoundWinTrend: roundWinTrend.showRoundWinTrend,
+      roundWinPlayers: roundWinTrend.roundWinPlayers,
+      showGroupWinTrend: groupWinTrend.showGroupWinTrend,
+      groupWinPlayers: groupWinTrend.groupWinPlayers
     }, () => this.drawScoreTrends(trends));
   },
 
@@ -377,6 +416,131 @@ Page({
     };
   },
 
+  roundBatchWinners(table) {
+    const playerIds = {};
+    (table.players || []).forEach((player) => {
+      playerIds[player.id] = true;
+    });
+    const records = (table.records || [])
+      .map((record, index) => ({ record, index }))
+      .filter(({ record }) => (
+        record.type !== 'settlement' &&
+        !record.revoked &&
+        Number(record.amount) > 0 &&
+        playerIds[record.fromPlayerId] &&
+        playerIds[record.toPlayerId]
+      ))
+      .sort((left, right) => (
+        (Number(left.record.createdAt) || 0) - (Number(right.record.createdAt) || 0) ||
+        right.index - left.index
+      ));
+    const batches = [];
+    records.forEach(({ record }) => {
+      const createdAt = Number(record.createdAt) || 0;
+      const previous = batches[batches.length - 1];
+      if (!previous || createdAt - previous.createdAt > 30 * 1000) {
+        batches.push({ records: [record], createdAt });
+      } else {
+        previous.records.push(record);
+        previous.createdAt = createdAt;
+      }
+    });
+    return batches.map((batch) => {
+      const net = {};
+      batch.records.forEach((record) => {
+        const amount = Number(record.amount);
+        net[record.fromPlayerId] = (net[record.fromPlayerId] || 0) - amount;
+        net[record.toPlayerId] = (net[record.toPlayerId] || 0) + amount;
+      });
+      let winnerId = '';
+      let bestNet = 0;
+      Object.keys(net).forEach((playerId) => {
+        if (net[playerId] > bestNet) {
+          bestNet = net[playerId];
+          winnerId = playerId;
+        }
+      });
+      return winnerId;
+    });
+  },
+
+  buildRoundWinTrend(table) {
+    const colors = ['#12855a', '#d85645', '#4e82c8', '#8b6fd9', '#bf7c35', '#4b9f9b'];
+    const players = (table.players || []).map((player, index) => ({
+      id: player.id,
+      name: player.name || `玩家${index + 1}`,
+      color: player.avatarColor || colors[index % colors.length]
+    }));
+    const wins = {};
+    players.forEach((player) => {
+      wins[player.id] = 0;
+    });
+    const points = [{ label: '开始', wins: { ...wins } }];
+    this.roundBatchWinners(table).forEach((winnerId, index) => {
+      if (winnerId) wins[winnerId] += 1;
+      points.push({ label: `第${index + 1}轮`, wins: { ...wins } });
+    });
+
+    return {
+      showRoundWinTrend: points.length > 1,
+      roundWinPlayers: players,
+      roundWinLabels: points.map((point) => point.label),
+      roundWinSeries: players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        color: player.color,
+        values: points.map((point) => Number(point.wins[player.id]) || 0)
+      }))
+    };
+  },
+
+  buildGroupWinTrend(tables) {
+    const colors = ['#12855a', '#d85645', '#4e82c8', '#8b6fd9', '#bf7c35', '#4b9f9b'];
+    const playerMap = {};
+    const wins = {};
+    (tables || []).forEach((table) => {
+      (table.players || []).forEach((player) => {
+        const id = player.groupPlayerId || player.openid || player.id;
+        if (!id) return;
+        if (!playerMap[id]) {
+          playerMap[id] = {
+            id,
+            name: player.name || '玩家',
+            color: player.avatarColor || colors[Object.keys(playerMap).length % colors.length]
+          };
+          wins[id] = 0;
+        }
+      });
+    });
+    const points = [];
+    (tables || []).forEach((table) => {
+      const idByTablePlayer = {};
+      (table.players || []).forEach((player) => {
+        idByTablePlayer[player.id] = player.groupPlayerId || player.openid || player.id;
+      });
+      this.roundBatchWinners(table).forEach((winnerId) => {
+        const id = idByTablePlayer[winnerId];
+        if (id && Object.prototype.hasOwnProperty.call(wins, id)) wins[id] += 1;
+      });
+      points.push({
+        label: `第${Number(table.roundNo) || 1}局`,
+        wins: { ...wins }
+      });
+    });
+    const players = Object.values(playerMap);
+    return {
+      showGroupWinTrend: points.length > 0 && players.length > 0,
+      groupWinPlayers: players,
+      groupWinLabels: points.map((point) => point.label),
+      groupWinSeries: players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        color: player.color,
+        values: points.map((point) => Number(point.wins[player.id]) || 0)
+      }))
+    };
+  },
+
   drawScoreTrends(trends) {
     if (trends.showScoreTrends) {
       this.drawTrendChart('my-score-chart', trends.trendLabels, trends.myTrendSeries, trends.trendRecordCounts);
@@ -385,9 +549,15 @@ Page({
     if (trends.showRoundTrend) {
       this.drawTrendChart('round-score-chart', trends.roundTrendLabels, trends.roundTrendSeries, trends.roundTrendRecordCounts);
     }
+    if (trends.showRoundWinTrend) {
+      this.drawTrendChart('round-win-chart', trends.roundWinLabels, trends.roundWinSeries, [], { integerAxis: true });
+    }
+    if (trends.showGroupWinTrend) {
+      this.drawTrendChart('group-win-chart', trends.groupWinLabels, trends.groupWinSeries, [], { integerAxis: true });
+    }
   },
 
-  drawTrendChart(canvasId, labels, series, recordCounts = []) {
+  drawTrendChart(canvasId, labels, series, recordCounts = [], options = {}) {
     if (!labels.length || !series.length) return;
     const query = wx.createSelectorQuery();
     query.select(`#${canvasId}`).fields({ node: true, size: true }).exec((result) => {
@@ -407,12 +577,28 @@ Page({
       const chartWidth = Math.max(1, width - margin.left - margin.right);
       const chartHeight = Math.max(1, height - margin.top - margin.bottom);
       const values = series.reduce((items, item) => items.concat(item.values), [0]);
-      const minValue = Math.min(...values);
-      const maxValue = Math.max(...values);
-      const valueRange = Math.max(1, maxValue - minValue);
-      const padding = Math.max(1, valueRange * 0.16);
-      const domainMin = minValue - padding;
-      const domainMax = maxValue + padding;
+      let domainMin;
+      let domainMax;
+      let tickValues;
+      if (options.integerAxis) {
+        const maxValue = Math.max(0, ...values);
+        const step = maxValue <= 9 ? 1 : Math.ceil(maxValue / 8);
+        domainMin = 0;
+        domainMax = Math.max(step, Math.ceil((maxValue + 1) / step) * step);
+        tickValues = [];
+        for (let value = 0; value <= domainMax; value += step) tickValues.push(value);
+      } else {
+        const minValue = Math.min(...values);
+        const maxValue = Math.max(...values);
+        const valueRange = Math.max(1, maxValue - minValue);
+        const padding = Math.max(1, valueRange * 0.16);
+        domainMin = minValue - padding;
+        domainMax = maxValue + padding;
+        tickValues = [];
+        for (let tick = 0; tick <= 4; tick += 1) {
+          tickValues.push(domainMax - (domainMax - domainMin) * (tick / 4));
+        }
+      }
       const domainRange = domainMax - domainMin;
       const xAt = (index) => labels.length <= 1
         ? margin.left + chartWidth / 2
@@ -425,10 +611,8 @@ Page({
 
       context.font = '11px sans-serif';
       context.lineWidth = 1;
-      for (let tick = 0; tick <= 4; tick += 1) {
-        const ratio = tick / 4;
-        const y = margin.top + chartHeight * ratio;
-        const value = domainMax - domainRange * ratio;
+      tickValues.forEach((value) => {
+        const y = yAt(value);
         context.strokeStyle = '#e7ece8';
         context.beginPath();
         context.moveTo(margin.left, y);
@@ -438,7 +622,7 @@ Page({
         context.textAlign = 'right';
         context.textBaseline = 'middle';
         context.fillText(formatScore(value), margin.left - 8, y);
-      }
+      });
 
       const zeroY = yAt(0);
       if (zeroY >= margin.top && zeroY <= margin.top + chartHeight) {
@@ -478,7 +662,7 @@ Page({
       }
 
       this.trendChartMeta = this.trendChartMeta || {};
-      this.trendChartMeta[canvasId] = { labels, series, recordCounts, margin, chartWidth, xAt };
+      this.trendChartMeta[canvasId] = { labels, series, recordCounts, options, margin, chartWidth, xAt };
       const selectedIndex = this.trendSelectedIndexes && this.trendSelectedIndexes[canvasId];
       if (Number.isInteger(selectedIndex) && selectedIndex >= 0 && selectedIndex < labels.length) {
         this.drawTrendTooltip(
@@ -599,7 +783,7 @@ Page({
       this.trendPendingChartIds = {};
       pendingChartIds.forEach((id) => {
         const meta = this.trendChartMeta && this.trendChartMeta[id];
-        if (meta) this.drawTrendChart(id, meta.labels, meta.series, meta.recordCounts);
+        if (meta) this.drawTrendChart(id, meta.labels, meta.series, meta.recordCounts, meta.options);
       });
     }, 16);
   },
@@ -613,7 +797,7 @@ Page({
     this.trendSelectedIndexes = {};
     selectedChartIds.forEach((chartId) => {
       const meta = this.trendChartMeta && this.trendChartMeta[chartId];
-      if (meta) this.drawTrendChart(chartId, meta.labels, meta.series, meta.recordCounts);
+      if (meta) this.drawTrendChart(chartId, meta.labels, meta.series, meta.recordCounts, meta.options);
     });
   },
 

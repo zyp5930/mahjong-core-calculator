@@ -92,6 +92,66 @@
       <view wx:else class="trend-empty">本局还没有有效给分记录</view>
     </view>
 
+    <view class="trend-panel card" wx:if="{{roundTrendTables.length}}">
+      <view class="trend-title">单局赢局走势</view>
+      <scroll-view class="round-trend-tabs" scroll-x="true" enable-flex="true">
+        <view class="round-trend-tab-list">
+          <view
+            wx:for="{{roundTrendTables}}"
+            wx:key="id"
+            class="round-trend-tab {{item.selected ? 'selected' : ''}}"
+            bindtap="selectRoundTrend"
+            data-id="{{item.id}}"
+          >{{item.label}}</view>
+        </view>
+      </scroll-view>
+      <view class="trend-legend all-trend-legend" wx:if="{{showRoundWinTrend}}">
+        <view wx:for="{{roundWinPlayers}}" wx:key="id" class="trend-legend-item">
+          <text class="trend-dot" style="background: {{item.color}}"></text>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+      <view wx:if="{{roundTrendLoading}}" class="trend-empty">正在加载本局给分记录</view>
+      <canvas
+        wx:elif="{{showRoundWinTrend}}"
+        type="2d"
+        id="round-win-chart"
+        class="trend-canvas"
+        data-chart-id="round-win-chart"
+        catchtap="keepTrendSelection"
+        catchtouchstart="onTrendTouchStart"
+        catchtouchmove="onTrendTouchMove"
+        catchtouchend="onTrendTouchEnd"
+        catchtouchcancel="onTrendTouchEnd"
+        catchlongpress="onTrendLongPress"
+        catchlongtap="onTrendLongPress"
+      ></canvas>
+      <view wx:else class="trend-empty">本局还没有有效给分记录</view>
+    </view>
+
+    <view class="trend-panel card" wx:if="{{showGroupWinTrend}}">
+      <view class="trend-title">全局赢局走势</view>
+      <view class="trend-legend all-trend-legend">
+        <view wx:for="{{groupWinPlayers}}" wx:key="id" class="trend-legend-item">
+          <text class="trend-dot" style="background: {{item.color}}"></text>
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+      <canvas
+        type="2d"
+        id="group-win-chart"
+        class="trend-canvas"
+        data-chart-id="group-win-chart"
+        catchtap="keepTrendSelection"
+        catchtouchstart="onTrendTouchStart"
+        catchtouchmove="onTrendTouchMove"
+        catchtouchend="onTrendTouchEnd"
+        catchtouchcancel="onTrendTouchEnd"
+        catchlongpress="onTrendLongPress"
+        catchlongtap="onTrendLongPress"
+      ></canvas>
+    </view>
+
     <view class="trend-panel card" wx:if="{{showScoreTrends}}">
       <view class="trend-title">全员分数走势</view>
       <view class="trend-legend all-trend-legend">
