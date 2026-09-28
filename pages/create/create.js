@@ -56,6 +56,7 @@ Page({
         ownerAvatarUrl: this.data.ownerAvatarUrl
       });
       if (!table || !table.id) throw new Error('牌局创建结果异常');
+      if (table.shareCode) store.prefetchTableCode(table.shareCode);
       await redirectTo(`/pages/room/room?id=${table.id}&autoInvite=1`);
     } catch (error) {
       wx.showModal({

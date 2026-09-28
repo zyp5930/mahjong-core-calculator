@@ -429,6 +429,27 @@ async function getTableByShareCode(shareCode, openid) {
     players: [], records: [], playerCount: table.players.length, invitePreview: true };
 }
 
+async function getTableCode(event, openid) {
+  const shareCode = event.shareCode;
+  if (typeof shareCode !== 'string' || !/^[A-Z0-9]{6,20}$/.test(shareCode)) throw new Error('无效邀请');
+  const { data } = await db.collection('tables').where({ shareCode }).limit(1).get();
+  const table = data[0];
+  if (!table || table.status !== 'active' || !(table.participantOpenids || []).includes(openid)) {
+    throw new Error('仅牌局成员可生成有效邀请');
+  }
+  const envVersion = process.env.MINIPROGRAM_ENV_VERSION || 'release';
+  if (!['release', 'trial', 'develop'].includes(envVersion)) throw new Error('Invalid environment');
+  let result;
+  try {
+    result = await cloud.openapi.wxacode.getUnlimited({ scene: `shareCode=${shareCode}`, page: 'pages/join/join', checkPath: true, envVersion });
+  } catch (error) {
+    logError('[getTableCode failed]', error);
+    throw new Error('邀请二维码暂不可用，请稍后重试或使用微信卡片分享');
+  }
+  if (!result || !result.buffer) throw new Error('二维码生成失败');
+  return result.buffer.toString('base64');
+}
+
 async function joinTable(event, openid) {
   const table = await getTableById(event.tableId);
   if (!table) throw new Error('牌局不存在');
@@ -897,6 +918,8 @@ exports.main = async (event = {}) => {
         return ok(await getTable(event.tableId, OPENID));
       case 'getTableByShareCode':
         return ok(await getTableByShareCode(event.shareCode, OPENID));
+      case 'getTableCode':
+        return ok(await getTableCode(event, OPENID));
       case 'joinTable':
         return ok(await joinTable(event, OPENID));
       case 'updateMyProfile':

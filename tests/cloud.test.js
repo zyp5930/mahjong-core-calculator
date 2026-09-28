@@ -184,9 +184,9 @@ test('resumable deletion clears historical identity and cross-round summaries, p
 });
 
 test('QR code uses release and denies non-members', async () => {
-  const h = harness(), t = await create(h), code = h.load(path.resolve('cloudfunctions/tableCode/index.js')).main;
-  h.setUser('bob'); assert.equal((await code({ shareCode: t.shareCode })).ok, false);
-  h.setUser('alice'); assert.equal((await code({ shareCode: t.shareCode })).ok, true);
+  const h = harness(), t = await create(h);
+  h.setUser('bob'); assert.equal((await h.api({ action: 'getTableCode', shareCode: t.shareCode })).ok, false);
+  h.setUser('alice'); assert.equal((await h.api({ action: 'getTableCode', shareCode: t.shareCode })).ok, true);
   assert.equal(h.cloud.lastCode.envVersion, 'release');
   assert.equal(h.cloud.lastCode.checkPath, true);
   assert.ok(h.cloud.lastCode.scene.length <= 32);

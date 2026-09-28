@@ -389,15 +389,39 @@ async function callTableOp(action, data) {
   return result.data;
 }
 
-async function getTableCode(shareCode) {
-  const { result } = await callCloudFunction('tableCode', { shareCode }, '二维码生成超时');
+const tableCodeCache = {};
+const tableCodeRequests = {};
+
+async function fetchTableCode(shareCode) {
+  const { result } = await callCloudFunction('tableOps', { action: 'getTableCode', shareCode }, '二维码生成超时', { immediate: true });
   if (!result || result.ok === false) {
     throw new Error((result && result.message) || '二维码生成失败');
   }
-  if (!result.buffer) {
+  if (!result.data) {
     throw new Error('二维码生成失败');
   }
-  return `data:image/png;base64,${result.buffer}`;
+  return `data:image/png;base64,${result.data}`;
+}
+
+// The QR payload (page + shareCode) never changes, so the generated image can be reused.
+async function getTableCode(shareCode) {
+  if (tableCodeCache[shareCode]) return tableCodeCache[shareCode];
+  if (!tableCodeRequests[shareCode]) {
+    tableCodeRequests[shareCode] = fetchTableCode(shareCode)
+      .then((image) => {
+        tableCodeCache[shareCode] = image;
+        return image;
+      })
+      .finally(() => {
+        delete tableCodeRequests[shareCode];
+      });
+  }
+  return tableCodeRequests[shareCode];
+}
+
+function prefetchTableCode(shareCode) {
+  if (!shareCode || tableCodeCache[shareCode]) return;
+  getTableCode(shareCode).catch(() => null);
 }
 
 async function normalizeTable(table) {
@@ -1089,6 +1113,7 @@ module.exports = {
   ensureMe,
   getStoredMode,
   getTableCode,
+  prefetchTableCode,
   normalizeTable,
   getCachedTableList,
   hydrateTableAvatars,

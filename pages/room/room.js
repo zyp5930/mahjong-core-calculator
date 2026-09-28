@@ -186,12 +186,20 @@ Page({
       this.redirectToJoin();
       return;
     }
+    this.prefetchInviteCode(table);
     this.showPendingNotice();
     if (this.data.pendingAutoInvite) {
       this.setData({ pendingAutoInvite: false });
       this.openInvite();
     }
     this.redirectToNextTableIfNeeded(table);
+  },
+
+  prefetchInviteCode(table) {
+    if (!table || table.status !== 'active' || !table.shareCode) return;
+    if (this.prefetchedShareCode === table.shareCode) return;
+    this.prefetchedShareCode = table.shareCode;
+    store.prefetchTableCode(table.shareCode);
   },
 
   redirectToNextTableIfNeeded(table) {

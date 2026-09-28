@@ -38,8 +38,8 @@ module.exports = function safety(cloud, db) {
   }
 
   async function rateLimit(openid, action) {
-    const bucket = ['getTableByShareCode', 'joinTable', 'createTable', 'updateMyProfile'].includes(action) ? action : 'general';
-    const limit = bucket === 'createTable' ? 5 : bucket === 'general' ? 120 : 20;
+    const bucket = ['getTableByShareCode', 'joinTable', 'createTable', 'updateMyProfile', 'getTableCode'].includes(action) ? action : 'general';
+    const limit = bucket === 'createTable' ? 5 : bucket === 'getTableCode' ? 6 : bucket === 'general' ? 120 : 20;
     const id = hash(`${openid}:${bucket}`);
     await db.runTransaction(async (tx) => {
       const ref = tx.collection('request_limits').doc(id);
