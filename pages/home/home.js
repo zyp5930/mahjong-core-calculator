@@ -247,7 +247,8 @@ Page({
       return map;
     }, {});
     const renderGroups = tableGroups.map((group) => {
-      const { tables: ignoredTables, ...summary } = group;
+      const summary = Object.assign({}, group);
+      delete summary.tables;
       return summary;
     });
     this.setData({
@@ -508,7 +509,12 @@ Page({
         map[group.groupId] = group.tables || [];
         return map;
       }, {});
-      this.setData({ tableGroups: tableGroups.map(({ tables: ignoredTables, ...summary }) => summary) });
+      const renderGroups = tableGroups.map((group) => {
+        const summary = Object.assign({}, group);
+        delete summary.tables;
+        return summary;
+      });
+      this.setData({ tableGroups: renderGroups });
     });
   },
 
