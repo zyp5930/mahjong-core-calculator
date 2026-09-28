@@ -11,6 +11,33 @@ const avatarColors = ['#6b9fe8', '#45b7a8', '#f16f5d', '#8a7ee8', '#d69a25', '#5
 
 const { checkText, rejectAvatar, rateLimit, publicData, deleteMyData, getDeletionStatus, assertNotDeleting } = require('./safety')(cloud, db);
 
+const REQUIRED_COLLECTIONS = ['tables', 'request_limits', 'privacy_jobs', 'privacy_locks', 'legacy_avatar_files'];
+let collectionsReady = null;
+
+// Idempotent bootstrap: create missing collections once per container so a fresh
+// environment does not fail every request with DATABASE_COLLECTION_NOT_EXIST (-502005).
+function ensureCollections() {
+  if (!collectionsReady) {
+    collectionsReady = Promise.all(REQUIRED_COLLECTIONS.map(async (name) => {
+      try {
+        await db.createCollection(name);
+        console.log('[ensureCollections] created', name);
+      } catch (error) {
+        const message = String((error && (error.errMsg || error.message)) || '');
+        const alreadyExists = error && error.errCode === -502004 || /exist/i.test(message);
+        if (!alreadyExists) {
+          console.error('[ensureCollections] failed', {
+            name,
+            code: String((error && (error.errCode || error.code)) || 'INTERNAL'),
+            message
+          });
+        }
+      }
+    }));
+  }
+  return collectionsReady;
+}
+
 function makeId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -134,7 +161,10 @@ function buildTableListItem(table) {
 }
 
 function logError(label, error) {
-  console.error(label, { code: String(error && (error.errCode || error.code) || 'INTERNAL') });
+  console.error(label, {
+    code: String(error && (error.errCode || error.code) || 'INTERNAL'),
+    message: String((error && (error.errMsg || error.message)) || '')
+  });
 }
 
 function isDocumentNotFound(error) {
@@ -143,23 +173,28 @@ function isDocumentNotFound(error) {
 }
 
 function getErrorMessage(error) {
-  const message = (error && error.message) || String(error || '');
+  const message = String((error && (error.errMsg || error.message)) || String(error || ''));
+  if (/index/i.test(message)) {
+    return '云数据库缺少索引，请按云开发控制台提示创建后重试';
+  }
   if (
     message.includes('collection') ||
     message.includes('DATABASE_COLLECTION_NOT_EXIST') ||
-    message.includes('collection not exists') ||
     message.includes('Db or Table not exist')
   ) {
-    return '云数据库缺少 tables 集合，请先在云开发控制台创建';
+    return '云数据库缺少所需集合，请先在云开发控制台创建';
   }
   if (message.includes('permission') || message.includes('PERMISSION_DENIED')) {
-    return '云数据库权限不足，请检查 tables 集合权限';
+    return '云数据库权限不足，请检查集合权限';
   }
   if (message.includes('response size exceeded') || message.includes('EXCEED_MAX_RESPONSE_SIZE')) {
     return '云端返回数据过大，请重新部署最新云函数后重试';
   }
   if (isTransactionConflict(error)) {
     return '操作冲突，请重试';
+  }
+  if (error && (error.errCode || error.code)) {
+    return '服务暂不可用，请稍后重试或联系开发者';
   }
   return message || '云函数执行失败';
 }
@@ -437,11 +472,16 @@ async function getTableCode(event, openid) {
   if (!table || table.status !== 'active' || !(table.participantOpenids || []).includes(openid)) {
     throw new Error('仅牌局成员可生成有效邀请');
   }
-  const envVersion = process.env.MINIPROGRAM_ENV_VERSION || 'release';
-  if (!['release', 'trial', 'develop'].includes(envVersion)) throw new Error('Invalid environment');
+  const clientEnvVersion = ['release', 'trial', 'develop'].includes(event.envVersion) ? event.envVersion : '';
+  const envVersion = clientEnvVersion || process.env.MINIPROGRAM_ENV_VERSION || 'release';
   let result;
   try {
-    result = await cloud.openapi.wxacode.getUnlimited({ scene: `shareCode=${shareCode}`, page: 'pages/join/join', checkPath: true, envVersion });
+    // `checkPath: true` validates the page against the currently published
+    // mini-program version. A cloud function can be deployed before that
+    // version is released, which makes a valid source path fail with
+    // `invalid page rid`. The path is part of this app's package, so let
+    // WeChat generate the code without coupling it to release timing.
+    result = await cloud.openapi.wxacode.getUnlimited({ scene: `shareCode=${shareCode}`, page: 'pages/join/join', checkPath: false, envVersion });
   } catch (error) {
     logError('[getTableCode failed]', error);
     throw new Error('邀请二维码暂不可用，请稍后重试或使用微信卡片分享');
@@ -902,6 +942,7 @@ exports.main = async (event = {}) => {
 
   try {
     if (!OPENID) throw new Error('请从小程序内访问');
+    await ensureCollections();
     if (event.action === 'deleteMyData') return ok(await deleteMyData(OPENID));
     if (event.action === 'getDeletionStatus') return ok(await getDeletionStatus(OPENID));
     if (typeof event.action !== 'string') throw new Error('无效操作');
@@ -955,6 +996,6 @@ exports.main = async (event = {}) => {
       },
       openid: maskOpenid(OPENID)
     });
-    return fail(error.errCode || error.code ? '服务暂不可用，请稍后重试或联系开发者' : getErrorMessage(error));
+    return fail(getErrorMessage(error));
   }
 };

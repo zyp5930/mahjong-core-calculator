@@ -392,8 +392,22 @@ async function callTableOp(action, data) {
 const tableCodeCache = {};
 const tableCodeRequests = {};
 
+function getClientEnvVersion() {
+  try {
+    if (typeof wx === 'undefined' || !wx.getAccountInfoSync) return '';
+    const info = wx.getAccountInfoSync();
+    const version = info && info.miniProgram && info.miniProgram.envVersion;
+    return ['release', 'trial', 'develop'].includes(version) ? version : '';
+  } catch (error) {
+    return '';
+  }
+}
+
 async function fetchTableCode(shareCode) {
-  const { result } = await callCloudFunction('tableOps', { action: 'getTableCode', shareCode }, '二维码生成超时', { immediate: true });
+  const payload = { action: 'getTableCode', shareCode };
+  const envVersion = getClientEnvVersion();
+  if (envVersion) payload.envVersion = envVersion;
+  const { result } = await callCloudFunction('tableOps', payload, '二维码生成超时', { immediate: true });
   if (!result || result.ok === false) {
     throw new Error((result && result.message) || '二维码生成失败');
   }

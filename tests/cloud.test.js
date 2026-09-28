@@ -188,7 +188,7 @@ test('QR code uses release and denies non-members', async () => {
   h.setUser('bob'); assert.equal((await h.api({ action: 'getTableCode', shareCode: t.shareCode })).ok, false);
   h.setUser('alice'); assert.equal((await h.api({ action: 'getTableCode', shareCode: t.shareCode })).ok, true);
   assert.equal(h.cloud.lastCode.envVersion, 'release');
-  assert.equal(h.cloud.lastCode.checkPath, true);
+  assert.equal(h.cloud.lastCode.checkPath, false);
   assert.ok(h.cloud.lastCode.scene.length <= 32);
 });
 

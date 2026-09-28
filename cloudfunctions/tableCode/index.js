@@ -23,7 +23,10 @@ exports.main = async (event = {}) => {
       if (old && now - old.startedAt < 10000) throw new Error('频率限制');
       await ref.set({ data: { startedAt: now, expiresAt: new Date(now + 86400000) } });
     });
-    const result = await cloud.openapi.wxacode.getUnlimited({ scene: `shareCode=${shareCode}`, page: 'pages/join/join', checkPath: true, envVersion });
+    // The cloud function may run before the selected mini-program version is
+    // published. In that case `checkPath: true` returns `invalid page rid`
+    // even though the page exists in the app package.
+    const result = await cloud.openapi.wxacode.getUnlimited({ scene: `shareCode=${shareCode}`, page: 'pages/join/join', checkPath: false, envVersion });
     return { ok: true, buffer: result.buffer.toString('base64') };
   } catch (error) {
     console.error('[tableCode failed]', { code: String(error.errCode || error.code || 'INTERNAL') });
