@@ -21,6 +21,10 @@
       {
         "type": "file",
         "value": "README.md"
+      },
+      {
+        "type": "file",
+        "value": "头像.jpg"
       }
     ],
     "include": []
