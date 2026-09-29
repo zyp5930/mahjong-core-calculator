@@ -67,20 +67,6 @@ module.exports = function safety(cloud, db) {
         result[key] = publicData(item);
       }
     }
-    // Legacy unreviewed names are not redistributed. They can be edited and checked again.
-    if (Array.isArray(value.players) && value.contentChecked !== true) result.name = '积分牌局';
-    if (Array.isArray(value.players) && value.contentChecked !== true) {
-      const legacyNames = (item) => {
-        if (Array.isArray(item)) return item.map(legacyNames);
-        if (!item || typeof item !== 'object') return item;
-        return Object.fromEntries(Object.entries(item).map(([key, val]) => [key,
-          ['name', 'fromPlayerName', 'toPlayerName'].includes(key) ? (val === '已删除成员' ? val : '成员') : legacyNames(val)]));
-      };
-      const safe = legacyNames(result);
-      safe.name = '积分牌局';
-      safe.notifications = [];
-      return safe;
-    }
     return result;
   }
 
