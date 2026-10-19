@@ -352,7 +352,14 @@ async function updateTable(tableId, table, options = {}) {
     if (!current || (Number(current.revision) || 0) !== (Number(table.revision) || 0)) {
       throw new Error('数据已更新，请刷新后重试');
     }
-    await ref.update({ data: { ...cleanData, revision: (Number(current.revision) || 0) + 1 } });
+    await ref.update({ data: {
+      ...cleanData,
+      // Replace settlement objects atomically: dotted updates cannot write
+      // nested fields when an unsettled table stores these fields as null.
+      settlement: _.set(cleanData.settlement),
+      groupSettlement: _.set(cleanData.groupSettlement),
+      revision: (Number(current.revision) || 0) + 1
+    } });
     return { ...table, ...cleanData, revision: (Number(current.revision) || 0) + 1 };
   };
   if (options.transaction) return write(options.transaction);

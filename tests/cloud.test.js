@@ -6,6 +6,24 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const clone = (x) => structuredClone(x);
 
+// The cloud SDK expands ordinary objects into dotted update paths. Use set()
+// to replace a whole object, especially when the stored value is null.
+function applyUpdate(target, data) {
+  for (const [key, value] of Object.entries(data)) {
+    if (value && value.op === 'set') {
+      target[key] = clone(value.value);
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (target[key] === null || (target[key] !== undefined && typeof target[key] !== 'object')) {
+        throw Object.assign(new Error(`Cannot create field in element {${key}: null}`), { errCode: -502001 });
+      }
+      if (target[key] === undefined) target[key] = {};
+      applyUpdate(target[key], value);
+    } else {
+      target[key] = clone(value);
+    }
+  }
+}
+
 function harness() {
   const collections = new Map();
   let openid = 'alice';
@@ -20,7 +38,7 @@ function harness() {
         return {
           async get() { if (!records.has(id)) throw new Error('document does not exist'); return { data: { ...clone(records.get(id)), _id: id } }; },
           async set({ data }) { records.set(id, clone(data)); },
-          async update({ data }) { if (!records.has(id)) throw new Error('document does not exist'); records.set(id, { ...records.get(id), ...clone(data) }); },
+          async update({ data }) { if (!records.has(id)) throw new Error('document does not exist'); const next = clone(records.get(id)); applyUpdate(next, data); records.set(id, next); },
           async remove() { records.delete(id); }
         };
       },
@@ -43,7 +61,7 @@ function harness() {
     };
   }
   let serial = Promise.resolve();
-  const db = { collection, command: { in: (values) => ({ op: 'in', values }), gt: (value) => ({ op: 'gt', value }) },
+  const db = { collection, command: { in: (values) => ({ op: 'in', values }), gt: (value) => ({ op: 'gt', value }), set: (value) => ({ op: 'set', value }) },
     runTransaction(fn) {
       const result = serial.then(async () => {
         const before = clone(collections);
@@ -141,6 +159,58 @@ test('scoring, undo, empty multiplier and group settlement work', async () => {
   const settled = await h.api({ action: 'settleGroup', tableId: t._id, multiplier: 1 });
   assert.equal(settled.ok, true, settled.message);
   assert.equal(settled.data.groupStatus, 'settled');
+});
+
+test('group settlement replaces null fields for a single active player at multiplier 0.3', async () => {
+  const h = harness(), table = await create(h);
+  const before = clone(h.map('tables').get(table._id));
+  assert.equal(before.settlement, null);
+  assert.equal(before.groupSettlement, null);
+  const result = await h.api({ action: 'settleGroup', tableId: table._id, multiplier: 0.3 });
+  assert.equal(result.ok, true, result.message);
+  const saved = clone(h.map('tables').get(table._id));
+  assert.equal(saved.status, 'ended');
+  assert.equal(saved.groupStatus, 'settled');
+  assert.equal(saved.settlement.multiplier, 0.3);
+  assert.equal(saved.groupSettlement.tableCount, 1);
+  assert.equal(saved.groupSettlement.finalScores[0].totalScore, 0);
+  assert.equal(saved.records.filter((record) => record.type === 'settlement').length, 1);
+
+  const repeated = await h.api({ action: 'settleGroup', tableId: table._id, multiplier: 0.3 });
+  assert.equal(repeated.ok, true, repeated.message);
+  assert.deepEqual(h.map('tables').get(table._id), saved);
+});
+
+test('group settlement preserves settled rounds and settles pending rounds only once', async () => {
+  const h = harness(), first = await create(h);
+  h.setUser('bob');
+  assert.equal((await h.api({ action: 'joinTable', tableId: first._id, shareCode: first.shareCode, name: '乙' })).ok, true);
+  h.setUser('alice');
+  async function give(tableId, amount) {
+    const players = h.map('tables').get(tableId).players;
+    const result = await h.api({ action: 'giveScore', tableId, fromPlayerId: players[0].id, toPlayerId: players[1].id, amount });
+    assert.equal(result.ok, true, result.message);
+  }
+  await give(first._id, 10);
+  const settled = await h.api({ action: 'settleTable', tableId: first._id, multiplier: 2 });
+  assert.equal(settled.ok, true, settled.message);
+  const originalSettlement = clone(h.map('tables').get(first._id).settlement);
+  const next = await h.api({ action: 'startNextTable', tableId: first._id });
+  assert.equal(next.ok, true, next.message);
+  await give(next.data._id, 7);
+  const result = await h.api({ action: 'settleGroup', tableId: next.data._id, multiplier: 0.3 });
+  assert.equal(result.ok, true, result.message);
+  const firstSaved = clone(h.map('tables').get(first._id));
+  const nextSaved = clone(h.map('tables').get(next.data._id));
+  assert.deepEqual(firstSaved.settlement, originalSettlement);
+  assert.equal(nextSaved.settlement.finalScores[1].finalScore, 2.1);
+  assert.equal(nextSaved.groupSettlement.tableCount, 2);
+  assert.equal(nextSaved.groupSettlement.finalScores[0].totalScore, 22.1);
+  assert.deepEqual(firstSaved.groupSettlement, nextSaved.groupSettlement);
+  const repeated = await h.api({ action: 'settleGroup', tableId: first._id, multiplier: 0.3 });
+  assert.equal(repeated.ok, true, repeated.message);
+  assert.deepEqual(h.map('tables').get(first._id), firstSaved);
+  assert.deepEqual(h.map('tables').get(next.data._id), nextSaved);
 });
 
 test('rate limit persists across requests', async () => {

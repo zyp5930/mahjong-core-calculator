@@ -16,6 +16,7 @@ Page({
     allTrendSeries: [],
     roundTrendTables: [],
     selectedRoundTrendTableId: '',
+    hasAnyRoundRecords: false,
     showRoundTrend: false,
     roundTrendPlayers: [],
     roundTrendLoading: false,
@@ -209,6 +210,7 @@ Page({
     if (!sortedTables.some((table) => table.id === selectedTableId)) selectedTableId = currentTable.id;
     this.selectedRoundTrendTableId = selectedTableId;
     const selectedTable = sortedTables.find((table) => table.id === selectedTableId) || currentTable;
+    const hasAnyRoundRecords = sortedTables.some((table) => this.hasValidScoreRecords(table));
     const roundTrend = this.buildRoundScoreTrend(selectedTable);
     const groupTrends = this.buildScoreTrends(sortedTables, myPlayer);
     const roundWinTrend = this.buildRoundWinTrend(selectedTable);
@@ -222,6 +224,7 @@ Page({
         selected: table.id === selectedTableId
       })),
       selectedRoundTrendTableId: selectedTableId,
+      hasAnyRoundRecords,
       showRoundTrend: roundTrend.showRoundTrend,
       roundTrendPlayers: roundTrend.roundTrendPlayers,
       roundTrendLoading: this.roundTrendLoadingId === selectedTableId,
@@ -269,6 +272,20 @@ Page({
       this.updateScoreTrends(latestTables, latestCurrent, latestCurrent && store.findMyPlayer(latestCurrent));
       wx.showToast({ title: error.message || '加载对局记录失败', icon: 'none' });
     });
+  },
+
+  hasValidScoreRecords(table) {
+    const playerIds = {};
+    (table.players || []).forEach((player) => {
+      playerIds[player.id] = true;
+    });
+    return (table.records || []).some((record) => (
+      record.type !== 'settlement' &&
+      !record.revoked &&
+      Number(record.amount) > 0 &&
+      playerIds[record.fromPlayerId] &&
+      playerIds[record.toPlayerId]
+    ));
   },
 
   buildRoundScoreTrend(table) {
